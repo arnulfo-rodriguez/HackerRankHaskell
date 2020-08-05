@@ -1,0 +1,69 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.33.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 67cd0cb30e7cb87e8f5c788e691a8e03c460a972759769378f8ddb08bb522a79
+
+name:           QueensAttack2
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/Github username here/QueensAttack2#readme>
+homepage:       https://github.com/Github username here/QueensAttack2#readme
+bug-reports:    https://github.com/Github username here/QueensAttack2/issues
+author:         Author name here
+maintainer:     Author email here
+copyright:      2019 Author name here
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/Github username here/QueensAttack2
+
+library
+  exposed-modules:
+      CutTheTree
+      Lib
+      Lib2
+      MagicSquare
+      NonDivisibleSubSet
+  other-modules:
+      Paths_QueensAttack2
+  hs-source-dirs:
+      src
+  build-depends:
+      array
+    , base >=4.7 && <5
+  default-language: Haskell2010
+
+executable QueensAttack2-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_QueensAttack2
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      QueensAttack2
+    , array
+    , base >=4.7 && <5
+  default-language: Haskell2010
+
+test-suite QueensAttack2-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_QueensAttack2
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      QueensAttack2
+    , array
+    , base >=4.7 && <5
+  default-language: Haskell2010
