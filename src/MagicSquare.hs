@@ -87,7 +87,7 @@ fixedMagicSquares = [Matrix [[4,9,2],
                      Matrix [[6,1,8],
                              [7,5,3],
                              [2,9,4]]]
-                             
+                              
 distance (Matrix m) (Matrix other) =  foldl (\ d (a,b) -> d + abs(a - b)) 0  $ concatMap (uncurry zip) $  zip m other
 
 formingMagicSquare s = minimum $ map (distance (Matrix s)) fixedMagicSquares

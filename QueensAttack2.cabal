@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 67cd0cb30e7cb87e8f5c788e691a8e03c460a972759769378f8ddb08bb522a79
+-- hash: 1ab050526dfd042e1a048cb7f9cbafd232731c5f103c33871684ba831242d66f
 
 name:           QueensAttack2
 version:        0.1.0.0
@@ -27,11 +27,11 @@ source-repository head
 
 library
   exposed-modules:
-      CutTheTree
       Lib
       Lib2
       MagicSquare
       NonDivisibleSubSet
+      OrganizingContainers
   other-modules:
       Paths_QueensAttack2
   hs-source-dirs:
