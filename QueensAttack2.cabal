@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1ab050526dfd042e1a048cb7f9cbafd232731c5f103c33871684ba831242d66f
+-- hash: 84be770a3bceefbd81b4c84b77d6d561bca6d592900e6272ecc420ad5c9df016
 
 name:           QueensAttack2
 version:        0.1.0.0
@@ -27,6 +27,7 @@ source-repository head
 
 library
   exposed-modules:
+      GridSearch
       Lib
       Lib2
       MagicSquare
