@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 84be770a3bceefbd81b4c84b77d6d561bca6d592900e6272ecc420ad5c9df016
+-- hash: 36f5b24d7d28f49d2d03f50264cbf8a2ef45a6f66b7882f5288a7a4cbaa06b4a
 
 name:           QueensAttack2
 version:        0.1.0.0
@@ -33,6 +33,7 @@ library
       MagicSquare
       NonDivisibleSubSet
       OrganizingContainers
+      Test
   other-modules:
       Paths_QueensAttack2
   hs-source-dirs:

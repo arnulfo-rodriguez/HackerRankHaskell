@@ -5,6 +5,7 @@ where
 import Data.List
 
 data Kpm a = Kpm a [Int] 
+  deriving Show
 getPattern (Kpm p _) = p
 getPrefixTable (Kpm _ t) = t
 
@@ -22,48 +23,60 @@ prefixTable pattern =  let prefixTableRec j i  currentTable = if (i == length pa
                          
 
 allIndicesOf (Kpm pattern prefixT) str = let findMatch startOfMatch currentIndex =
-                                              if currentIndex == length pattern then
-                                                 Just startOfMatch 
-                                              else if (startOfMatch + currentIndex) >= length str then
-                                                  Nothing
-                                              else if pattern !! currentIndex == str !! (startOfMatch + currentIndex) then
-                                                  findMatch startOfMatch (currentIndex + 1)
-                                              else if currentIndex > 0 then
-                                                  findMatch (startOfMatch + currentIndex - (prefixT !! (currentIndex - 1))) (prefixT !! (currentIndex - 1)) 
-                                              else 
-                                                  findMatch (startOfMatch + 1) 0
+                                                            if currentIndex == length pattern then
+                                                               Just startOfMatch 
+                                                            else if (startOfMatch + currentIndex) >= length str then
+                                                                Nothing
+                                                            else if pattern !! currentIndex == str !! (startOfMatch + currentIndex) then
+                                                                findMatch startOfMatch (currentIndex + 1)
+                                                            else if currentIndex > 0 then
+                                                                findMatch (startOfMatch + currentIndex - (prefixT !! (currentIndex - 1))) (prefixT !! (currentIndex - 1)) 
+                                                            else 
+                                                                findMatch (startOfMatch + 1) 0
                                              allIndicesOfRec startOfMatch currentIndex = case findMatch startOfMatch currentIndex of
-                                                                                              Nothing -> []
-                                                                                              Just x -> 
-                                                                                                x : (allIndicesOfRec (x + (length pattern) - (last prefixT)) (last prefixT))
-                                   in allIndicesOfRec 0 0 
- 
+                                                                                                Nothing -> []
+                                                                                                Just x -> 
+                                                                                                  x : (allIndicesOfRec (x + (length pattern) - (last prefixT)) (last prefixT))
+                                         in allIndicesOfRec 0 0 
+
                                     
-orderedIntersect [] l2 = []
-orderedIntersect l1 [] = []
-orderedIntersect l1@(h1:t1) l2@(h2:t2) = if (h1 < h2) then orderedIntersect t1 l2 else if (h2 < h1) then orderedIntersect l1 t2 else h1:(orderedIntersect t1 t2)
+
+matchesAt :: [Kpm String] -> [String] -> Int -> Int -> Bool
+matchesAt [] _ _ _ = True
+matchesAt (firstPattern:restPatterns) grid startAt currentColumn = case Data.List.splitAt currentColumn (grid !! startAt) of
+                                                                       (_,rest) -> if (isPrefixOf (getPattern firstPattern) rest) then 
+                                                                                      matchesAt restPatterns grid (startAt + 1)  currentColumn
+                                                                                    else False
+allMatchAtAny _ _ _ [] = Nothing
+allMatchAtAny patterns grid startAt (currentColumn:restColumns) = if matchesAt patterns grid startAt currentColumn then
+                                                                         Just currentColumn
+                                                                      else allMatchAtAny patterns grid startAt restColumns                                                                                  
+                                                                                    
 
 gridSearch :: [String] -> [String] -> String
-gridSearch grid pattern = let prefixT = getPrefixTable $ prefixTable pattern
+gridSearch grid pattern = 
+                          let prefixT = getPrefixTable $ prefixTable pattern
                               kpms = Data.List.map prefixTable pattern
-                              findMatch startOfMatch currentIndex remainingIndices =
+                              findMatch startOfMatch currentIndex  =
                                     let doOnFail = if currentIndex > 0 then
-                                                      findMatch (startOfMatch + currentIndex - (prefixT !! (currentIndex - 1))) (prefixT !! (currentIndex - 1))  remainingIndices
+                                                      findMatch (startOfMatch + currentIndex - (prefixT !! (currentIndex - 1))) (prefixT !! (currentIndex - 1)) 
                                                    else 
-                                                      findMatch (startOfMatch + 1) 0 remainingIndices
+                                                      findMatch (startOfMatch + 1) 0 
                                     in
                                       if currentIndex == length pattern then
                                          Just startOfMatch 
                                       else if (startOfMatch + currentIndex) >= length grid then
                                           Nothing
                                       else let  allMatches = (allIndicesOf (kpms !! currentIndex)  (grid !! (startOfMatch + currentIndex)))
-                                            in case orderedIntersect remainingIndices allMatches of 
+                                            in case allMatches of 
                                                 [] -> doOnFail
                                                 newRemaining -> 
-                                                    case findMatch startOfMatch (currentIndex + 1) newRemaining of
-                                                      Nothing -> doOnFail
+                                                    case allMatchAtAny kpms grid (startOfMatch + currentIndex) allMatches  of
+                                                      Nothing -> 
+                                                        doOnFail
                                                       something -> something
+                                                        
   
-                          in case findMatch 0 0 [0..(length(grid !! 0) - 1)] of
+                          in case findMatch 0 0 of
                               Nothing -> "NO"
                               Just _ -> "YES"
