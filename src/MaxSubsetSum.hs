@@ -1,7 +1,4 @@
-module Test where
-
-
-                                                          
+module MaxSubsetSum where
 
 maxSubsetSumRec [a] = (a,Nothing)
 maxSubsetSumRec (a:rest) =  case maxSubsetSumRec rest of
