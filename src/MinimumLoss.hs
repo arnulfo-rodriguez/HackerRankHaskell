@@ -2,31 +2,27 @@ module MinimumLoss
 (minimumLoss) where
 
 import Data.Maybe
+import Data.List
 
+data BinaryTree a = BinaryTreeNode a (Maybe a) (BinaryTree a) (BinaryTree a) | NullTree
+addToTree  :: (Ord a, Num a) => BinaryTree a -> a -> BinaryTree a
+addToTree  NullTree value = BinaryTreeNode value Nothing NullTree NullTree
+addToTree  (BinaryTreeNode existingValue minLoss leftTree rightTree) value = if value < existingValue  then
+                                                                        BinaryTreeNode existingValue (minMaybe minLoss (Just (existingValue - value))) (addToTree  leftTree value) rightTree
+                                                                    else
+                                                                        BinaryTreeNode existingValue minLoss leftTree (addToTree  rightTree value)
 
-insrt :: (Ord a, Num a) => a -> [a] -> (Maybe a, [a])
-insrt item [] =  (Nothing , [item])
-insrt item [i] = if  item > i then (Just (item - i) , [i,item]) else  (Nothing , [item,i]) 
-insrt item items = let (start,h:tl) = splitAt (length items `div` 2) items
-                           in if  item > h then
-                               let (minLoss,newTail) = insrt item (h:tl)
-                               in (minLoss, start ++ newTail)
-                           else
-                               let (minLoss,newStart) = insrt item start
-                               in (minLoss, newStart ++ (h:tl))
-  
+buildTree :: (Ord a, Num a) => [a] -> BinaryTree a
+buildTree = Data.List.foldl addToTree NullTree
 
 minMaybe :: Ord a => Maybe a -> Maybe a -> Maybe a
 minMaybe Nothing b = b
 minMaybe a Nothing = a
 minMaybe (Just a) (Just b) = Just $ min a b
 
-accumulate :: (Ord a, Num a) => a -> (Maybe a, [a])  -> (Maybe a, [a])
-accumulate i (currentMin,acc) = let (m,newLst) = insrt i  acc in (minMaybe currentMin m, newLst)
+minimumLossWithTree :: (Ord a, Num a) => BinaryTree a -> Maybe a
+minimumLossWithTree NullTree = Nothing
+minimumLossWithTree (BinaryTreeNode _ minLoss leftTree rightTree) = minMaybe minLoss $ minMaybe (minimumLossWithTree leftTree)  $ minimumLossWithTree rightTree
 
-minimumLossOpt :: (Foldable t, Ord a, Num a) => t a -> Maybe a
-minimumLossOpt lst = let (result,_) = foldr accumulate (Nothing, []) lst
-                      in result
-
-minimumLoss :: (Num a, Ord a) => [a] -> a
-minimumLoss price = Data.Maybe.fromMaybe (- 1) (minimumLossOpt price)
+minimumLoss :: (Ord a, Num a) => [a] -> a
+minimumLoss price = Data.Maybe.fromMaybe (-1) $ (minimumLossWithTree.buildTree) price
