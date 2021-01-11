@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.34.2.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1fc78441636e3f557f8211d47eba2e060fb0510e5f51239e761c2aba90fe6623
+-- hash: 7ea2bf4f9ba0c250c1aec408015453f82dd41d93a7b9422f577d6e850e987b8f
 
 name:           QueensAttack2
 version:        0.1.0.0
@@ -32,7 +32,7 @@ library
       Lib2
       MagicSquare
       MaxSubsetSum
-      MorganAndString
+      MinimumLoss
       NonDivisibleSubSet
       OrganizingContainers
   other-modules:
