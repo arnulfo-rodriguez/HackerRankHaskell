@@ -3,39 +3,35 @@
 module NonDivisibleSubSet
   ( nonDivisibleSubset
   ) where
+    
+import Data.List
+import Data.Function
+  
+scalaGroupBy :: Ord b => (a -> b) -> [a] -> [[a]]
+scalaGroupBy f = Data.List.groupBy ((==) `Data.Function.on` f) . Data.List.sortOn f
 
-import           Data.Foldable
-import           Data.Monoid
-
-data IntArraySet
-  = EmptyArraySet
-  | NonEmptyArraySet [Int] IntArraySet
-  | MergedArraySet IntArraySet IntArraySet
-  | FoldedArraySet Int IntArraySet
-
-allSubsetOfSize :: Int -> [Int] -> [[Int]]
-allSubsetOfSize size l@(head:rest)
-  | size == 0 = []
-  | length l == size = [l]
-  | length l > size =
-    let setsWithoutHeadOfSizeN = allSubsetOfSize size rest
-        setsWithHeadOfSizeN = map (\subset -> head : subset) $ allSubsetOfSize (size - 1) rest
-     in setsWithoutHeadOfSizeN ++ setsWithHeadOfSizeN
-  | otherwise = []
-
-allSubsets l = concatMap (`allSubsetOfSize` l) (enumFromThenTo (length l) (length l - 1) 1)
-
-allPairs []      = []
-allPairs [x]     = []
-allPairs (h:j:t) = (h, j) : (allPairs (h : t) ++ allPairs (j : t))
-
-pairsNotDivisibleBy :: Int -> [(Int, Int)] -> Bool
-pairsNotDivisibleBy k [] = True
-pairsNotDivisibleBy k ((a, b):rest) = (((a + b) `mod` k) > 0) && pairsNotDivisibleBy k rest
-
+mergeSorted :: Foldable t => [t a] -> [t a] -> [t a]
+mergeSorted [] [] = []
+mergeSorted a []  = a
+mergeSorted [] b = b
+mergeSorted l1@(h1:rest1) l2@(h2:rest2) = if Data.List.length h1 > Data.List.length h2 then h1:mergeSorted rest1 l2 else h2:mergeSorted l1 rest2
+  
+combine :: Num a => (a -> Bool) -> [a] -> [[a]]
+combine _  []  = []
+combine p (h:rest) =  let combined = combine p rest 
+                          newSets = Data.List.map (h :) (Data.List.filter (Data.List.all (\ e -> p (h + e))) combined)  
+                       in
+                          mergeSorted combined newSets ++ [[h]]
+ 
+   
+nonDivisibleSubset :: Integral a => a -> [a] -> Int
 nonDivisibleSubset k s =
-  let subsets = allSubsets s
-      nonDivisibleSubsets = filter (pairsNotDivisibleBy k . allPairs) subsets
-   in case nonDivisibleSubsets of
-        (a:_) -> length a
-        _ -> -1
+  let 
+    f =   (\ x -> x `mod` k /= 0)
+    splittedByMod = scalaGroupBy f s
+    getMaxArray = (Data.List.length . Data.List.head . combine f)
+  in case splittedByMod of
+      [all@(h:_)] -> if f h then getMaxArray all else 1
+      [[],nonDivByK] ->  getMaxArray nonDivByK 
+      [_,[]] -> 1
+      [_,nonDivByK] -> 1 + getMaxArray nonDivByK
