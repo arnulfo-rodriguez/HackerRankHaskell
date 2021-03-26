@@ -1,4 +1,4 @@
-module Lib
+module QueensAttack
   ( Pos(..)
   , Board(..)
   , Queen(..)
