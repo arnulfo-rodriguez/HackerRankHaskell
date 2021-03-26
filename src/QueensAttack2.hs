@@ -138,18 +138,16 @@ minimumDistances (Board q _ blocked) funcs =
    in minsPerDirection
 
 queensAttack b =
-  let md =
-        minimumDistances
-          b
-          [ distanceFromBlockedToQueenUp
-          , distanceFromBlockedToQueenDown
-          , distanceFromBlockedToQueenLeft
-          , distanceFromBlockedToQueenRight
-          , distanceFromBlockedToQueenDiagonalUpRight
-          , distanceFromBlockedToQueenDiagonalUpLeft
-          , distanceFromBlockedToQueenDiagonalDownRight
-          , distanceFromBlockedToQueenDiagonalDownLeft
-          ]
+  let md =minimumDistances b
+                              [ distanceFromBlockedToQueenUp
+                              , distanceFromBlockedToQueenDown
+                              , distanceFromBlockedToQueenLeft
+                              , distanceFromBlockedToQueenRight
+                              , distanceFromBlockedToQueenDiagonalUpRight
+                              , distanceFromBlockedToQueenDiagonalUpLeft
+                              , distanceFromBlockedToQueenDiagonalDownRight
+                              , distanceFromBlockedToQueenDiagonalDownLeft
+                              ]
    in sum $
       map
         (\(dir, defaultDistance) ->
