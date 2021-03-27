@@ -36,9 +36,9 @@ getMax (MaxAllSets max _) = max
 
 
 addSet allSet@(AllSetsResult theSet  size) EmptyMax = MaxAllSets size [allSet]
-addSet allSet@(AllSetsResult theSet  size) (MaxAllSets m allSets) = MaxAllSets (max m size) (allSet:allSets) 
+addSet allSet@(AllSetsResult theSet  size) (MaxAllSets m allSets) = MaxAllSets (max m size) (allSet:allSets)
 
-addSets sets theMax = Data.List.foldl (flip addSet) theMax sets 
+addSets sets theMax = Data.List.foldl (flip addSet) theMax sets
 
 getAllSetsRec :: Int -> Int -> KMods -> MaxAllSets
 getAllSetsRec n k  kmods 
@@ -55,45 +55,45 @@ getAllSetsRec n k  kmods
         else let 
               biggerThankCase = MaxAllSets 1 [(AllSetsResult (Set.empty) 1)]
               in if (Set.size theNewSet) == (Set.size theSet) 
-                  then biggerThankCase 
+                  then biggerThankCase
                   else addSet (AllSetsResult (Set.singleton n) 1) biggerThankCase
   | (n == (k `div` 2))  = 
     let 
         (Just theMap) = Data.Map.Strict.lookup n kmods
         theSets = Data.Map.Strict.toList theMap
-        processSet (theMod, theSet) = 
-          let theNewSet = (Set.delete theMod theSet) 
-                in 
-                  if (Set.size theNewSet) == 0 
+        processSet (theMod, theSet) =
+          let theNewSet = (Set.delete theMod theSet)
+                in
+                  if (Set.size theNewSet) == 0
                   then  [(AllSetsResult (Set.singleton theMod)  1)]
-                  else let 
+                  else let
                         biggerThankCase = [(AllSetsResult (Set.empty) (Set.size theNewSet))]
-                        in if (Set.size theNewSet) == (Set.size theSet) 
+                        in if (Set.size theNewSet) == (Set.size theSet)
                             then biggerThankCase
                             else (AllSetsResult (Set.singleton theMod)  (Set.size theSet)):biggerThankCase
     in addSets (concatMap processSet theSets) EmptyMax
   | True =
-    let nextSets = getAllSetsRec (n  + 1) k kmods 
+    let nextSets = getAllSetsRec (n  + 1) k kmods
         (Just theMap) = Data.Map.Strict.lookup n kmods
         theSets = Data.Map.Strict.toList theMap
-        canAdd  theMod = Data.List.all (\ ltk -> (theMod + ltk) > k) 
-        processSet prev@(AllSetsResult allLessThanK oldLength) (theMod, theSet)  = 
-           let theNewSet = (Set.delete theMod theSet) 
-                 in 
-                   if (Set.size theNewSet) == 0 
-                   then 
-                     if canAdd theMod allLessThanK  then [(AllSetsResult (Set.insert theMod allLessThanK)  (oldLength + 1)),prev]  else [prev] 
-                   else let 
+        canAdd  theMod = Data.List.all (\ ltk -> (theMod + ltk) > k)
+        processSet prev@(AllSetsResult allLessThanK oldLength) (theMod, theSet)  =
+           let theNewSet = (Set.delete theMod theSet)
+                 in
+                   if (Set.size theNewSet) == 0
+                   then
+                     if canAdd theMod allLessThanK  then [(AllSetsResult (Set.insert theMod allLessThanK)  (oldLength + 1)),prev]  else [prev]
+                   else let
                          biggerThankCase = (AllSetsResult allLessThanK  (oldLength + (Set.size theSet)))
                          canAddLtk =  canAdd theMod allLessThanK
                          containsLtk = (Set.size theNewSet) /= (Set.size theSet)
                          in if (containsLtk) && (canAddLtk)
-                             then [biggerThankCase,(AllSetsResult (Set.insert theMod allLessThanK) (oldLength + (Set.size theSet)))]  
+                             then [biggerThankCase,(AllSetsResult (Set.insert theMod allLessThanK) (oldLength + (Set.size theSet)))]
                              else if containsLtk && (not canAddLtk) then [(AllSetsResult allLessThanK  (oldLength + (Set.size theNewSet)))] else [biggerThankCase]
      in  addSets (Data.List.concatMap (\ prevResult -> (Data.List.concatMap (processSet prevResult) theSets)) (getAllSets nextSets)) (MaxAllSets (getMax nextSets) [])
 
 
-nonDivisibleSubset k s 
+nonDivisibleSubset k s
   | k == 1 = 1
   | True = let kmods =  Data.List.foldl (addKmod k) Data.Map.Strict.empty s
            in  (getMax (getAllSetsRec 0 k kmods))

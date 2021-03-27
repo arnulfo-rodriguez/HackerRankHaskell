@@ -12,7 +12,7 @@ import System.Environment
 import System.IO
 import System.IO.Unsafe
 
-import NonDivisibleSubSet.hs
+import NonDivisibleSubSet
 
 lstrip = Data.Text.unpack . Data.Text.stripStart . Data.Text.pack
 rstrip = Data.Text.unpack . Data.Text.stripEnd . Data.Text.pack
