@@ -4,11 +4,13 @@ where
 
 import Data.List
 
-data Kpm a = Kpm a [Int] 
-  deriving Show
+data Kpm a = Kpm a [Int] deriving Show
+getPattern :: Kpm a -> a
 getPattern (Kpm p _) = p
+getPrefixTable :: Kpm a -> [Int]
 getPrefixTable (Kpm _ t) = t
 
+prefixTable :: Eq a => [a] -> Kpm [a]
 prefixTable pattern =  let prefixTableRec j i  currentTable = if (i == length pattern) then
                                                                currentTable
                                                             else if pattern !! i == pattern !! j then
@@ -22,6 +24,7 @@ prefixTable pattern =  let prefixTableRec j i  currentTable = if (i == length pa
                          _ -> Kpm pattern $ prefixTableRec 0 1 [0]
                          
 
+allIndicesOf :: Eq a => Kpm [a] -> [a] -> [Int]
 allIndicesOf (Kpm pattern prefixT) str = let findMatch startOfMatch currentIndex =
                                                             if currentIndex == length pattern then
                                                                Just startOfMatch 
@@ -47,6 +50,7 @@ matchesAt (firstPattern:restPatterns) grid startAt currentColumn = case Data.Lis
                                                                        (_,rest) -> if (isPrefixOf (getPattern firstPattern) rest) then 
                                                                                       matchesAt restPatterns grid (startAt + 1)  currentColumn
                                                                                     else False
+allMatchAtAny :: [Kpm String] -> [String] -> Int -> [Int] -> Maybe Int
 allMatchAtAny _ _ _ [] = Nothing
 allMatchAtAny patterns grid startAt (currentColumn:restColumns) = if matchesAt patterns grid startAt currentColumn then
                                                                          Just currentColumn
@@ -67,13 +71,11 @@ gridSearch grid pattern =
                                          Just startOfMatch 
                                       else if (startOfMatch + currentIndex) >= length grid then
                                           Nothing
-                                      else let  allMatches = (allIndicesOf (kpms !! currentIndex)  (grid !! (startOfMatch + currentIndex)))
-                                            in case allMatches of 
+                                      else case  (allIndicesOf (kpms !! currentIndex)  (grid !! (startOfMatch + currentIndex))) of
                                                 [] -> doOnFail
-                                                newRemaining -> 
+                                                allMatches -> 
                                                     case allMatchAtAny kpms grid (startOfMatch + currentIndex) allMatches  of
-                                                      Nothing -> 
-                                                        doOnFail
+                                                      Nothing ->  doOnFail
                                                       something -> something
                                                         
   
