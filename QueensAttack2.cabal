@@ -35,6 +35,7 @@ library
       MinimumLoss
       NonDivisibleSubSet
       OrganizingContainers
+      MorganAndString
   other-modules:
       Paths_QueensAttack2
   hs-source-dirs:

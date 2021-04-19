@@ -12,30 +12,23 @@ import System.Environment
 import System.IO
 import System.IO.Unsafe
 
-import NonDivisibleSubSet
-
-lstrip = Data.Text.unpack . Data.Text.stripStart . Data.Text.pack
-rstrip = Data.Text.unpack . Data.Text.stripEnd . Data.Text.pack
+import MorganAndString
 
 main :: IO()
 main = do
     stdout <- getEnv "OUTPUT_PATH"
     fptr <- openFile stdout WriteMode
 
-    firstMultipleInputTemp <- getLine
-    let firstMultipleInput = Data.List.words $ rstrip firstMultipleInputTemp
+    t <- readLn :: IO Int
 
-    let n = read (firstMultipleInput !! 0) :: Int
+    forM_ [1..t] $ \t_itr -> do
+        a <- getLine
 
-    let k = read (firstMultipleInput !! 1) :: Int
+        b <- getLine
 
-    sTemp <- getLine
+        let result = morganAndString a b
 
-    let s = Data.List.map (read :: String -> Int) . Data.List.words $ rstrip sTemp
-
-    let result = nonDivisibleSubset k s
-
-    hPutStrLn fptr $ show result
+        hPutStrLn fptr result
 
     hFlush fptr
     hClose fptr
