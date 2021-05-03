@@ -12,23 +12,35 @@ import System.Environment
 import System.IO
 import System.IO.Unsafe
 
-import MorganAndString
+import ConnectedCells
+
+lstrip = Data.Text.unpack . Data.Text.stripStart . Data.Text.pack
+rstrip = Data.Text.unpack . Data.Text.stripEnd . Data.Text.pack
+
+readMultipleLinesAsStringArray :: Int -> IO [String]
+readMultipleLinesAsStringArray 0 = return []
+readMultipleLinesAsStringArray n = do
+    line <- getLine
+    rest <- readMultipleLinesAsStringArray(n - 1)
+    return (line : rest)
 
 main :: IO()
 main = do
     stdout <- getEnv "OUTPUT_PATH"
     fptr <- openFile stdout WriteMode
 
-    t <- readLn :: IO Int
+    nTemp <- getLine
+    let n = read $ lstrip $ rstrip nTemp :: Int
 
-    forM_ [1..t] $ \t_itr -> do
-        a <- getLine
+    mTemp <- getLine
+    let m = read $ lstrip $ rstrip mTemp :: Int
 
-        b <- getLine
+    matrixTemp <- readMultipleLinesAsStringArray n
+    let matrix = Data.List.map (\x -> Data.List.map (read :: String -> Int) . Data.List.words $ rstrip x) matrixTemp
 
-        let result = morganAndString a b
+    let result = connectedCell matrix
 
-        hPutStrLn fptr result
+    hPutStrLn fptr $ show result
 
     hFlush fptr
     hClose fptr
