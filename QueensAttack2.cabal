@@ -37,6 +37,7 @@ library
       OrganizingContainers
       MorganAndString
       ConnectedCells
+      FrogInMaze
   other-modules:
       Paths_QueensAttack2
   hs-source-dirs:
