@@ -10,10 +10,12 @@ module FrogInMaze(
 
 import  Data.Sequence as Seq
 import Data.List
+import Data.Maybe
 
 data Position = Position Int Int deriving(Eq,Show)
 data Cell = Free  | Mine  | Obstacle  | Exit  | Initial  | Tunnel Position  deriving(Eq,Show)
 data Maze = EmptyMaze | Maze (Seq (Seq Cell))  deriving(Eq,Show)
+data ProbabilityGraph = EmptyGraph | Node Cell [(Node,Double)]
 
 addTunnel :: Maze -> Int -> Int -> Int -> Int -> Maze
 addTunnel (Maze cells) i1 j1 i2 j2 =
@@ -31,6 +33,30 @@ addRow (Maze oldCells) newCells = Maze (oldCells |> Seq.fromList newCells)
 
 buildMaze :: [[Cell]] -> Maze
 buildMaze = Data.List.foldl addRow EmptyMaze
+
+cellAt i j (Maze cells)
+ | i < 0 = Nothing
+ | j < 0 = Nothing
+ | i >= Seq.length cells = Nothing
+ | j >= Seq.length (Seq.cells `Seq.index` 0) = Nothing
+ | otherwise = Just ((cells `Seq.index` i) `Seq.index` j)
+
+canMove i j maze = case cellAt i j maze of 
+                     Nothing -> Nothing
+                     Just Obstacle -> Nothing
+                     x -> x
+ 
+buildProbabilitiesGraph :: Maze -> ProbabilityGraph
+buildProbabilitiesGraph EmptyMaze = EmptyGraph
+buildProbabilitiesGraph maze@(Maze cells) = 
+  let 
+     neighborsIndexes i j = filter (\ (currentI,currentJ) -> ((currentI == i) && (currentJ == j)))  $ zip [i-1..i+1] [j-1..j+1]
+     neighbors i j  = concatMap (\ (ni,nj) -> (Data.Maybe.maybeToList (cellAt ni nj))) (neighborsIndexes i j)
+     buildProbabilitieNode i j =  case cellAt i j of
+                                        Just c@Mine -> Node c [(c,1.0)]
+                                        Just other -> let n = (neighbors i j)
+                                                       in Node other (map (\ n -> (n,1/(Data.List.length ns))) ns)
+                                                         
 
 newCell :: Char -> Cell
 newCell c =
