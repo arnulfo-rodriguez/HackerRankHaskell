@@ -15,7 +15,7 @@ import Data.Maybe
 data Position = Position Int Int deriving(Eq,Show)
 data Cell = Free  | Mine  | Obstacle  | Exit  | Initial  | Tunnel Position  deriving(Eq,Show)
 data Maze = EmptyMaze | Maze (Seq (Seq Cell))  deriving(Eq,Show)
-data ProbabilityGraph = EmptyGraph | Node Cell [(Node,Double)]
+data ProbabilityGraph = EmptyGraph | Node Maze Int Int [(Int,Int,Double)]  
 
 addTunnel :: Maze -> Int -> Int -> Int -> Int -> Maze
 addTunnel (Maze cells) i1 j1 i2 j2 =
