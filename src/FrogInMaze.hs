@@ -5,58 +5,74 @@ module FrogInMaze(
   newCell,
   addTunnel,
   addRow,
-  buildMaze
+  buildMaze,
+  buildProbabilitiesGraph
 ) where
 
-import  Data.Sequence as Seq
+import Data.Sequence as Seq
 import Data.List
 import Data.Maybe
+import Data.Foldable
 
 data Position = Position Int Int deriving(Eq,Show)
 data Cell = Free  | Mine  | Obstacle  | Exit  | Initial  | Tunnel Position  deriving(Eq,Show)
-data Maze = EmptyMaze | Maze (Seq (Seq Cell))  deriving(Eq,Show)
-data ProbabilityGraph = EmptyGraph | Node Maze Int Int [(Int,Int,Double)]  
+data MazeBuilder = MazeBuilder (Maybe Position) (Seq (Seq Cell))
+data Maze = EmptyMaze | Maze Position (Seq (Seq Cell))  deriving(Eq,Show)
+data Node = EmptyNode | Node Cell [(Position,Double)] deriving(Show)
+data ProbabilityGraph = EmptyGraph | ProbabilityGraph Position (Seq (Seq Node)) deriving(Show)
 
 addTunnel :: Maze -> Int -> Int -> Int -> Int -> Maze
-addTunnel (Maze cells) i1 j1 i2 j2 =
+addTunnel (Maze initial cells) i1 j1 i2 j2 =
   let x1 = (i1 -1)
       y1 = (j1 - 1)
       x2 = (i2 - 1)
       y2 = (j2 - 1)
       mazeUpdate :: Int -> Int -> Int -> Int -> Seq (Seq Cell) -> Seq (Seq Cell)
       mazeUpdate x_1 y_1 x_2 y_2 myCells = Seq.update x_1  (Seq.update y_1 (Tunnel (Position x_2 y_2)) (Seq.index myCells x_1)) myCells
-  in  Maze (mazeUpdate x2 y2 x1 y1 (mazeUpdate x1 y1 x2 y2 cells))
+  in  Maze initial (mazeUpdate x2 y2 x1 y1 (mazeUpdate x1 y1 x2 y2 cells))
 
-addRow :: Maze -> [Cell] -> Maze
-addRow EmptyMaze cells = Maze (Seq.singleton (Seq.fromList cells))
-addRow (Maze oldCells) newCells = Maze (oldCells |> Seq.fromList newCells)
+addRow :: MazeBuilder -> [Cell] -> MazeBuilder
+addRow (MazeBuilder startingPos@(Just _) oldCells) newCells = MazeBuilder startingPos (oldCells |> Seq.fromList newCells)
+addRow (MazeBuilder Nothing oldCells) newCells = case Data.List.elemIndex Initial newCells of
+                                                    Nothing -> MazeBuilder Nothing (oldCells |> Seq.fromList newCells)
+                                                    Just idx -> MazeBuilder (Just (Position (Seq.length oldCells) idx)) (oldCells |> Seq.fromList newCells) 
+
+toMaze (MazeBuilder (Just position) cells) = Maze position cells
 
 buildMaze :: [[Cell]] -> Maze
-buildMaze = Data.List.foldl addRow EmptyMaze
-
-cellAt i j (Maze cells)
+buildMaze =  toMaze . (Data.List.foldl addRow (MazeBuilder Nothing Seq.empty))
+cellAt :: Int -> Int -> (Seq (Seq a)) -> Maybe a
+cellAt i j cells
  | i < 0 = Nothing
  | j < 0 = Nothing
  | i >= Seq.length cells = Nothing
- | j >= Seq.length (Seq.cells `Seq.index` 0) = Nothing
+ | j >= Seq.length (cells `Seq.index` 0) = Nothing
  | otherwise = Just ((cells `Seq.index` i) `Seq.index` j)
 
-canMove i j maze = case cellAt i j maze of 
+canMove :: Int -> Int -> Maze -> Maybe (Int, Int, Maybe Cell)
+canMove i j (Maze _ cells) = case cellAt i j cells of 
                      Nothing -> Nothing
                      Just Obstacle -> Nothing
-                     x -> x
+                     x -> Just (i,j,x)
  
 buildProbabilitiesGraph :: Maze -> ProbabilityGraph
 buildProbabilitiesGraph EmptyMaze = EmptyGraph
-buildProbabilitiesGraph maze@(Maze cells) = 
+buildProbabilitiesGraph maze@(Maze start cells) = 
   let 
-     neighborsIndexes i j = filter (\ (currentI,currentJ) -> ((currentI == i) && (currentJ == j)))  $ zip [i-1..i+1] [j-1..j+1]
-     neighbors i j  = concatMap (\ (ni,nj) -> (Data.Maybe.maybeToList (cellAt ni nj))) (neighborsIndexes i j)
-     buildProbabilitieNode i j =  case cellAt i j of
-                                        Just c@Mine -> Node c [(c,1.0)]
-                                        Just other -> let n = (neighbors i j)
-                                                       in Node other (map (\ n -> (n,1/(Data.List.length ns))) ns)
-                                                         
+     neighborsIndexes i j = [(i,j-1),(i,j+1),(i-1,j),(i+1,j)]
+     neighbors i j  = concatMap (\ (ni,nj) -> (Data.Maybe.maybeToList (canMove ni nj maze))) (neighborsIndexes i j)
+     buildProbabilitiesNode :: Int -> Int -> Cell -> Node
+     buildProbabilitiesNode i j cell  =  case cell of
+                                        Mine -> Node Mine [((Position i j),1.0)]
+                                        tunnel@(Tunnel (Position ni nj)) -> let ns = (neighbors ni nj)
+                                                                                    in Node tunnel (Data.List.map (\ (x,y,_) -> ((Position x y), 1.0 / (fromIntegral (Data.List.length ns)))) ns)
+                                        Obstacle -> EmptyNode
+                                        theCell -> let ns = (neighbors i j)
+                                                         in Node theCell (Data.List.map (\ (x,y,_) -> ((Position x y), 1.0 / (fromIntegral (Data.List.length ns)))) ns)
+  in
+   ProbabilityGraph start $ Seq.mapWithIndex (\ i row -> Seq.mapWithIndex (\ j cell -> buildProbabilitiesNode i j cell) row) cells
+
+fromHereToExit currentX currentY graph maze = 0.0 -- TODO
 
 newCell :: Char -> Cell
 newCell c =

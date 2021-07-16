@@ -46,7 +46,6 @@ library
       array
     , containers >= 0.6.2.1
     , text >= 1.2.4.0
-    , split >= 0.2.3.4
     , base >=4.7 && <5
   default-language: Haskell2010
 
@@ -62,7 +61,6 @@ executable QueensAttack2-exe
     , array
     , containers >= 0.6.2.1
     , text >= 1.2.4.0
-    , split >= 0.2.3.4
     , base >=4.7 && <5
   default-language: Haskell2010
 
@@ -79,6 +77,5 @@ test-suite QueensAttack2-test
     , array
     , containers >= 0.6.2.1
     , text >= 1.2.4.0
-    , split >= 0.2.3.4
     , base >=4.7 && <5
   default-language: Haskell2010

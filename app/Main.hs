@@ -6,7 +6,6 @@ import Control.Monad
 import Data.Array
 import Data.Bits
 import Data.List
-import Data.List.Split
 import Data.Set
 import Data.Text
 import Debug.Trace
@@ -54,5 +53,5 @@ main = do
 
                     return (i1,j1,i2,j2)
                     
-    putStrLn $ show $ Data.List.foldl (\ m (i1,j1,i2,j2) -> addTunnel m i1 j1 i2 j2) maze tunnels
+    putStrLn $ show $ buildProbabilitiesGraph $ Data.List.foldl (\ m (i1,j1,i2,j2) -> addTunnel m i1 j1 i2 j2) maze tunnels
 
