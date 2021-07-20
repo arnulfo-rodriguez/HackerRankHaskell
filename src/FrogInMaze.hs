@@ -6,20 +6,24 @@ module FrogInMaze(
   addTunnel,
   addRow,
   buildMaze,
-  buildProbabilitiesGraph
+  buildProbabilitiesGraph,
+  fromStartToExit
 ) where
 
 import Data.Sequence as Seq
 import Data.List
 import Data.Maybe
 import Data.Foldable
+import Data.Set as Set
 
-data Position = Position Int Int deriving(Eq,Show)
+data Position = Position Int Int deriving(Eq,Show,Ord)
 data Cell = Free  | Mine  | Obstacle  | Exit  | Initial  | Tunnel Position  deriving(Eq,Show)
 data MazeBuilder = MazeBuilder (Maybe Position) (Seq (Seq Cell))
 data Maze = EmptyMaze | Maze Position (Seq (Seq Cell))  deriving(Eq,Show)
-data Node = EmptyNode | Node Cell [(Position,Double)] deriving(Show)
+data Node = EmptyNode | Node Cell Double [Position] deriving(Show)
 data ProbabilityGraph = EmptyGraph | ProbabilityGraph Position (Seq (Seq Node)) deriving(Show)
+
+getNeighbors (Node _ _ n) = n
 
 addTunnel :: Maze -> Int -> Int -> Int -> Int -> Maze
 addTunnel (Maze initial cells) i1 j1 i2 j2 =
@@ -35,7 +39,7 @@ addRow :: MazeBuilder -> [Cell] -> MazeBuilder
 addRow (MazeBuilder startingPos@(Just _) oldCells) newCells = MazeBuilder startingPos (oldCells |> Seq.fromList newCells)
 addRow (MazeBuilder Nothing oldCells) newCells = case Data.List.elemIndex Initial newCells of
                                                     Nothing -> MazeBuilder Nothing (oldCells |> Seq.fromList newCells)
-                                                    Just idx -> MazeBuilder (Just (Position (Seq.length oldCells) idx)) (oldCells |> Seq.fromList newCells) 
+                                                    Just idx -> MazeBuilder (Just (Position (Seq.length oldCells) idx)) (oldCells |> Seq.fromList newCells)
 
 toMaze (MazeBuilder (Just position) cells) = Maze position cells
 
@@ -50,29 +54,41 @@ cellAt i j cells
  | otherwise = Just ((cells `Seq.index` i) `Seq.index` j)
 
 canMove :: Int -> Int -> Maze -> Maybe (Int, Int, Maybe Cell)
-canMove i j (Maze _ cells) = case cellAt i j cells of 
+canMove i j (Maze _ cells) = case cellAt i j cells of
                      Nothing -> Nothing
                      Just Obstacle -> Nothing
                      x -> Just (i,j,x)
- 
+
 buildProbabilitiesGraph :: Maze -> ProbabilityGraph
 buildProbabilitiesGraph EmptyMaze = EmptyGraph
-buildProbabilitiesGraph maze@(Maze start cells) = 
+buildProbabilitiesGraph maze@(Maze start cells) =
   let 
      neighborsIndexes i j = [(i,j-1),(i,j+1),(i-1,j),(i+1,j)]
      neighbors i j  = concatMap (\ (ni,nj) -> (Data.Maybe.maybeToList (canMove ni nj maze))) (neighborsIndexes i j)
      buildProbabilitiesNode :: Int -> Int -> Cell -> Node
      buildProbabilitiesNode i j cell  =  case cell of
-                                        Mine -> Node Mine [((Position i j),1.0)]
+                                        Mine -> Node Mine 0.0 []
                                         tunnel@(Tunnel (Position ni nj)) -> let ns = (neighbors ni nj)
-                                                                                    in Node tunnel (Data.List.map (\ (x,y,_) -> ((Position x y), 1.0 / (fromIntegral (Data.List.length ns)))) ns)
+                                                                                    in Node tunnel (1.0 / (fromIntegral (Data.List.length ns))) (Data.List.map (\ (x,y,_) -> ((Position x y))) ns)
                                         Obstacle -> EmptyNode
+                                        Exit -> Node Exit 0.0 []
                                         theCell -> let ns = (neighbors i j)
-                                                         in Node theCell (Data.List.map (\ (x,y,_) -> ((Position x y), 1.0 / (fromIntegral (Data.List.length ns)))) ns)
+                                                         in Node theCell (1.0 / (fromIntegral (Data.List.length ns))) (Data.List.map (\ (x,y,_) -> ((Position x y))) ns)
   in
    ProbabilityGraph start $ Seq.mapWithIndex (\ i row -> Seq.mapWithIndex (\ j cell -> buildProbabilitiesNode i j cell) row) cells
 
-fromHereToExit currentX currentY graph maze = 0.0 -- TODO
+fromStartToExit :: ProbabilityGraph -> Double
+fromStartToExit (ProbabilityGraph start cells) =
+  let
+    fromHereToExitRec :: Position -> Set Position -> Double
+    fromHereToExitRec (Position i j) visited = case cellAt i j cells of
+                                       (Just (Node Exit _ _)) ->  1.0
+                                       (Just (Node Mine _ _)) -> 0.0
+                                       (Just (Node n probability neighbors)) -> let notVisited = Set.filter (\ e -> Set.notMember e visited) (Set.fromList neighbors)
+                                                                                    newVisited = notVisited `Set.union` visited
+                                                                                    neighborsProbabilities = Set.map (\ p -> probability * (fromHereToExitRec p newVisited)) notVisited
+                                                                                 in Data.Foldable.sum neighborsProbabilities
+   in (fromHereToExitRec start (Set.singleton start))
 
 newCell :: Char -> Cell
 newCell c =
