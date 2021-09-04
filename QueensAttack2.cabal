@@ -38,6 +38,7 @@ library
       MorganAndString
       ConnectedCells
       FrogInMaze
+      Matrix
   other-modules:
       Paths_QueensAttack2
   hs-source-dirs:

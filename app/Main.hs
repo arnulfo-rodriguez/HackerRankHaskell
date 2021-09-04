@@ -20,11 +20,11 @@ import Data.Set as Set
 import Data.List
 import Data.Function as Function
 import FrogInMaze
+import Numeric
 
 lstrip = Data.Text.unpack . Data.Text.stripStart . Data.Text.pack
 rstrip = Data.Text.unpack . Data.Text.stripEnd . Data.Text.pack
 
-main :: HasCallStack => IO()
 main = do 
     firstMultipleInputTemp <- getLine
     
@@ -59,5 +59,5 @@ main = do
 
                     return (i1,j1,i2,j2)
                     
-    print (fromStartToExit $ buildProbabilitiesGraph $ Data.List.foldl (\ m (i1,j1,i2,j2) -> addTunnel m i1 j1 i2 j2) maze tunnels)
+    print $ (fromStartToExit $ buildProbabilitiesGraph $ Data.List.foldl (\ m (i1,j1,i2,j2) -> addTunnel m i1 j1 i2 j2) maze tunnels)
 
