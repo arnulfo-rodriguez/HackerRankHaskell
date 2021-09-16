@@ -12,9 +12,9 @@ module FrogInMaze(
   fromStartToExit
 ) where
 
-import Data.Sequence as Seq
 import Data.List
 import Matrix
+import Data.Sequence as Seq
 import Data.Maybe
 import Data.Foldable
 import Data.Function as Function
@@ -30,16 +30,17 @@ data ProbabilityGraph = EmptyGraph | ProbabilityGraph Position (Seq (Seq Node)) 
 isAbsorbingState :: Node -> Int
 isAbsorbingState (Node Exit _ _ _) = 1
 isAbsorbingState (Node Mine _ _ _) = 1
-isAbsorbingState (Node Obstacle _ _ _) = 0
 isAbsorbingState (Node _ _ 0.0 []) = 1
 isAbsorbingState _ = 0
 -- HsFunTy
+isEmptyNode EmptyNode = True
+isEmptyNode _ = False
 partitionNodes :: ProbabilityGraph -> (Int, Seq Node)
 partitionNodes (ProbabilityGraph _ seq) =
   let
       sortedNodes :: Seq (Int,Node)
-      sortedNodes = Seq.sortBy
-          (compare `Function.on` negate . (\ (_,node)  -> isAbsorbingState node))
+      sortedNodes = Seq.filter (\ (_,x) -> not (isEmptyNode x))  $ Seq.sortBy
+          (compare `Function.on` negate . fst)
           (Seq.foldlWithIndex (\ acc _ row -> Seq.foldlWithIndex (\acc1 _ value -> acc1 |> (isAbsorbingState value,value)) acc row) Seq.empty seq)
   in Seq.foldlWithIndex (\ acc _ current -> let
                                               (i,currentNode) = current
@@ -57,13 +58,8 @@ getProbabilityOfTransition (Node _ pos1 prob neighbors) n2@(Node _ pos2 _ _)
 getStartingPositionNode (ProbabilityGraph (Position i j) nodes) = (nodes `Seq.index` i) `Seq.index` j
 indexOf node nodes = let newSeq = Seq.takeWhileL (/= node)  nodes
                      in if Seq.length newSeq == Seq.length nodes then -1 else Seq.length newSeq
--- HsFunTy                    
-getNode n (ProbabilityGraph _ nodes ) = let colCount = Seq.length (nodes `Seq.index` 0)
-                                            i = (n `div` colCount)
-                                            j = (n `mod` colCount)
-                                        in ((nodes `Seq.index` i) `Seq.index` j)
-                                        
-getFundamentalMatrix m = Matrix.inverseGaussJordan (buildIdentityMatrix m `subtractMatrix` m)                                        
+
+getFundamentalMatrix m = Matrix.inverseGaussJordan (buildIdentityMatrix m `subtractMatrix` m)
 -- HsAppTy
 fromStartToExit p = let     
                                      (countAbsorvingStates, sortedNodes) = partitionNodes p
@@ -78,13 +74,13 @@ fromStartToExit p = let
                                      fr = case fundamentalMatrix of
                                             Just m -> Just $ m `multiply` r
                                             Nothing -> Nothing
-                             in  case fr of 
-                                    Just matrix ->    Data.Foldable.sum $ 
-                                                      Seq.mapWithIndex (\ _ (_,p) -> p) $ 
-                                                      Seq.filter (\case {(Node Exit _ _ _,_) -> True; _ -> False})  $ 
-                                                      Seq.zip (Seq.take countAbsorvingStates sortedNodes) 
-                                                              (Seq.take countAbsorvingStates (getRow (startingNodeIndex - countAbsorvingStates) matrix)) 
-                                    Nothing -> 0.0
+                             in  case fr of
+                                    Just matrix ->    Data.Foldable.sum $
+                                                      Seq.mapWithIndex (\ _ (_,p) -> p) $
+                                                      Seq.filter (\case {(Node Exit _ _ _,_) -> True; _ -> False})  $
+                                                      Seq.zip (Seq.take countAbsorvingStates sortedNodes)
+                                                              (Seq.take countAbsorvingStates (getRow (startingNodeIndex - countAbsorvingStates) matrix))
+                                    Nothing -> 0
 
 
 -- HsFunTy

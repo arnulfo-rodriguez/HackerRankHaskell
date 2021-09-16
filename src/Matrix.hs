@@ -6,6 +6,7 @@ module Matrix
     getRow,
     buildIdentityMatrix,
     inverseGaussJordan,
+    subMatrix
   )
 where
 
@@ -70,6 +71,9 @@ minor (Matrix seq) i j =
       filterJ row = Seq.foldlWithIndex (\acc index value -> if index /= j then acc |> value else acc) Seq.empty row
    in Matrix $ Seq.foldlWithIndex (\acc currentRowIndex row -> if i /= currentRowIndex then acc |> filterJ row else acc) Seq.empty seq
 
+subMatrix startX startY endX endY (Matrix seq) =  Matrix $ Seq.mapWithIndex  (\ _ row -> Seq.take (endY - startY) (Seq.drop startY row))  
+                                                                             (Seq.take (endX - startX) (Seq.drop startX seq))
+
 -- HsFunTy
 cofactor m@(Matrix seq) = Matrix $ Seq.mapWithIndex (\i row -> Seq.mapWithIndex (\j _ -> ((-1) ^ (i + j + 1)) * det (minor m i j)) row) seq
 
@@ -80,6 +84,11 @@ transpose_ m@(Matrix seq) = Matrix (Seq.fromList (Data.List.map (`getColumn` m) 
 adjugate = transpose_ . cofactor
 
 buildIdentityMatrix (Matrix seq) = Matrix $ Seq.mapWithIndex (\i row -> Seq.mapWithIndex (\j _ -> if i == j then 1 else 0) row) seq
+
+isIdentityMatrix (Matrix seq) = 
+  let
+    isIdentityRow j row = Seq.foldlWithIndex (\ acc index value -> acc && (value == (if index == j then 1 else 0))) True row
+  in Seq.foldlWithIndex (\ acc index row -> acc && isIdentityRow index row) True seq
 
 -- HsFunTy
 inverse m@(Matrix seq) =
@@ -104,27 +113,32 @@ sortByBiggestLeftmost startingRowIndex matrix =
 
 multiplyAndAddRows factor = Seq.zipWith (\v1 v2 -> factor * v1 + v2)
 
+
+convertFirstColNonZeroToOne m originalMatrixSide rowIndex =
+  let (h, row :<| t) = Seq.splitAt rowIndex m
+      (BiggestLeftMostTuple _ value) = indexAndValueNonZero (Seq.take originalMatrixSide row)
+      inverseValue =  1 / value
+   in (h |> Seq.mapWithIndex (\_ v -> v * inverseValue) row) >< t
+   
+convertCellsInPivotColToZero rowIndex originalMatrixSide m =
+  let pivotRow  = m `Seq.index` rowIndex
+      (BiggestLeftMostTuple pivotCol _) = indexAndValueNonZero (Seq.take originalMatrixSide pivotRow)
+      transformedRows = Seq.mapWithIndex (\idx row -> if idx == rowIndex then row else multiplyAndAddRows (-1 * (row `Seq.index` pivotCol)) pivotRow row) m
+   in transformedRows
+
+
 inverseGaussJordan theMatrix@(Matrix seq) =
   let partitionedMatrix = concatenate theMatrix (buildIdentityMatrix theMatrix)
       originalMatrixSide = Seq.length seq
-      convertFirstColNonZeroToOne m rowIndex =
-        let (h, row :<| t) = Seq.splitAt rowIndex m
-            (BiggestLeftMostTuple _ value) = indexAndValueNonZero (Seq.take originalMatrixSide row)
-            inverseValue = 1 / value
-         in (h |> Seq.mapWithIndex (\_ v -> v * inverseValue) row) >< t
-      convertCellsInPivotColToZero rowIndex m =
-        let pivotRow  = m `Seq.index` rowIndex
-            (BiggestLeftMostTuple pivotCol _) = indexAndValueNonZero (Seq.take originalMatrixSide pivotRow)
-            transformedRows = Seq.mapWithIndex (\idx row -> if idx == rowIndex then row else multiplyAndAddRows (-1 * (row `Seq.index` pivotCol)) pivotRow row) m
-         in transformedRows
       invertedPartitionMatrix =
         Data.List.foldl
           ( \matrix index ->
               convertCellsInPivotColToZero
                 index
-                (convertFirstColNonZeroToOne (sortByBiggestLeftmost index matrix) index)
+                originalMatrixSide
+                (convertFirstColNonZeroToOne (sortByBiggestLeftmost index matrix) originalMatrixSide index)
           )
           partitionedMatrix
           [0 .. (originalMatrixSide -1)]
-      inverted = Seq.mapWithIndex (\_ row -> Seq.drop originalMatrixSide row) invertedPartitionMatrix
+      inverted =  Seq.mapWithIndex (\_ row -> Seq.drop originalMatrixSide row) invertedPartitionMatrix
    in Just $ Matrix inverted
