@@ -12,9 +12,9 @@ module FrogInMaze(
   fromStartToExit
 ) where
 
+import Data.Sequence as Seq
 import Data.List
 import Matrix
-import Data.Sequence as Seq
 import Data.Maybe
 import Data.Foldable
 import Data.Function as Function
@@ -46,6 +46,9 @@ partitionNodes (ProbabilityGraph _ seq) =
                                               (i,currentNode) = current
                                               (total,nodes) = acc
                                             in (i + total, nodes |> currentNode)) (0,Seq.empty) sortedNodes
+
+hasExits (Maze _ seq) =   Data.Maybe.isJust $ Seq.findIndexL (\case Exit-> True; _ -> False) $ seq >>= id
+                                                        
 -- HsFunTy
 getProbabilityOfTransition _ EmptyNode = 0.0
 getProbabilityOfTransition EmptyNode _ = 0.0
@@ -61,6 +64,7 @@ indexOf node nodes = let newSeq = Seq.takeWhileL (/= node)  nodes
 
 getFundamentalMatrix m = Matrix.inverseGaussJordan (buildIdentityMatrix m `subtractMatrix` m)
 -- HsAppTy
+fromStartToExit EmptyGraph = 0
 fromStartToExit p = let     
                                      (countAbsorvingStates, sortedNodes) = partitionNodes p
                                      matrixSide = [0..Seq.length sortedNodes -1]
@@ -123,25 +127,26 @@ canMove i j (Maze _ cells) = case cellAt i j cells of
                      x -> Just (i,j,x)
 -- HsFunTy
 buildProbabilitiesGraph EmptyMaze = EmptyGraph
-buildProbabilitiesGraph maze@(Maze start cells) =
-  let 
-     neighborsIndexes i j = [(i,j-1),(i,j+1),(i-1,j),(i+1,j)]
-     neighbors i j  = Data.Foldable.concatMap (\ (ni,nj) -> Data.Maybe.maybeToList (canMove ni nj maze)) (neighborsIndexes i j)
-     buildProbabilitiesNode :: Int -> Int -> Cell -> Node
-     buildProbabilitiesNode i j cell  =  case cell of
-                                        Mine -> Node Mine (Position i j) 0.0 []
-                                        tunnel@(Tunnel (Position ni nj)) -> let ns = neighbors ni nj
-                                                                                nsLength = Data.List.length ns
-                                                                                neighborsProb = if nsLength == 0 then 0 else 1.0 / fromIntegral nsLength
-                                                                             in Node tunnel (Position i j) neighborsProb (Data.List.map (\ (x,y,_) -> Position x y) ns)
-                                        Obstacle -> EmptyNode
-                                        Exit -> Node Exit (Position i j) 0.0 []
-                                        theCell -> let ns = neighbors i j
-                                                       nsLength = Data.List.length ns
-                                                       neighborsProb = if nsLength == 0 then 0 else 1.0 / fromIntegral nsLength
-                                                         in Node theCell (Position i j) neighborsProb (Data.List.map (\ (x,y,_) -> Position x y) ns)
-  in
-   ProbabilityGraph start $ Seq.mapWithIndex (Seq.mapWithIndex . buildProbabilitiesNode) cells
+buildProbabilitiesGraph maze@(Maze start cells)
+ | not (hasExits maze) = EmptyGraph
+ | True = let 
+           neighborsIndexes i j = [(i,j-1),(i,j+1),(i-1,j),(i+1,j)]
+           neighbors i j  = Data.Foldable.concatMap (\ (ni,nj) -> Data.Maybe.maybeToList (canMove ni nj maze)) (neighborsIndexes i j)
+           buildProbabilitiesNode :: Int -> Int -> Cell -> Node
+           buildProbabilitiesNode i j cell  =  case cell of
+                                              Mine -> Node Mine (Position i j) 0.0 []
+                                              tunnel@(Tunnel (Position ni nj)) -> let ns = neighbors ni nj
+                                                                                      nsLength = Data.List.length ns
+                                                                                      neighborsProb = if nsLength == 0 then 0 else 1.0 / fromIntegral nsLength
+                                                                                   in Node tunnel (Position i j) neighborsProb (Data.List.map (\ (x,y,_) -> Position x y) ns)
+                                              Obstacle -> EmptyNode
+                                              Exit -> Node Exit (Position i j) 0.0 []
+                                              theCell -> let ns = neighbors i j
+                                                             nsLength = Data.List.length ns
+                                                             neighborsProb = if nsLength == 0 then 0 else 1.0 / fromIntegral nsLength
+                                                               in Node theCell (Position i j) neighborsProb (Data.List.map (\ (x,y,_) -> Position x y) ns)
+        in
+         ProbabilityGraph start $ Seq.mapWithIndex (Seq.mapWithIndex . buildProbabilitiesNode) cells
 
 -- HsFunTy
 newCell :: Char -> Cell

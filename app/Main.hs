@@ -21,6 +21,7 @@ import Data.List
 import Data.Function as Function
 import Numeric
 import Text.Printf
+import FrogInMaze
 
 
 
@@ -61,5 +62,5 @@ main = do
 
                     return (i1,j1,i2,j2)
                     
-    printf "%2f\n" $ (fromStartToExit $ buildProbabilitiesGraph $ Data.List.foldl (\ m (i1,j1,i2,j2) -> addTunnel m i1 j1 i2 j2) maze tunnels)
+    printf "%2f\n" $ fromStartToExit (buildProbabilitiesGraph $ Data.List.foldl (\ m (i1,j1,i2,j2) -> addTunnel m i1 j1 i2 j2) maze tunnels)
 
