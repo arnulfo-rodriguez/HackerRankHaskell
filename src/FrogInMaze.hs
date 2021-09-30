@@ -18,6 +18,7 @@ import Matrix
 import Data.Maybe
 import Data.Foldable
 import Data.Function as Function
+
 data Position = Position Int Int deriving(Eq,Show,Ord)
 data Cell = Free  | Mine  | Obstacle  | Exit  | Initial  | Tunnel Position  deriving(Eq,Show)
 data MazeBuilder = MazeBuilder (Maybe Position) (Seq (Seq Cell))

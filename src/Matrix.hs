@@ -1,6 +1,5 @@
 module Matrix
   ( Matrix (..),
-    inverse,
     subtractMatrix,
     multiply,
     getRow,
@@ -49,40 +48,12 @@ multiply (Matrix seq1) m2@(Matrix seq2) =
 -- HsFunTy
 divideBy (Matrix seq) n = Matrix $ Seq.mapWithIndex (\_ row -> Seq.mapWithIndex (\_ entry -> entry / n) row) seq
 
--- HsFunTy
-det m@(Matrix seq)
-  | Seq.length seq == 1 =
-    let row = (seq `Seq.index` 0)
-     in (row `Seq.index` 0)
-  | otherwise =
-    Data.List.sum $
-      Data.List.map
-        ( \i ->
-            let v1 :: Rational
-                v1 = (-1.0) ^ (i + 1)
-                value = ((seq `Seq.index` i) `Seq.index` 0)
-                nextDet = det (minor m i 0)
-             in v1 * value * nextDet
-        )
-        [0 .. Seq.length seq -1]
-
--- HsFunTy
-minor (Matrix seq) i j =
-  let filterJ :: Seq a -> Seq a
-      filterJ row = Seq.foldlWithIndex (\acc index value -> if index /= j then acc |> value else acc) Seq.empty row
-   in Matrix $ Seq.foldlWithIndex (\acc currentRowIndex row -> if i /= currentRowIndex then acc |> filterJ row else acc) Seq.empty seq
-
 subMatrix startX startY endX endY (Matrix seq) =  Matrix $ Seq.mapWithIndex  (\ _ row -> Seq.take (endY - startY) (Seq.drop startY row))  
                                                                              (Seq.take (endX - startX) (Seq.drop startX seq))
 
 -- HsFunTy
-cofactor m@(Matrix seq) = Matrix $ Seq.mapWithIndex (\i row -> Seq.mapWithIndex (\j _ -> ((-1) ^ (i + j + 1)) * det (minor m i j)) row) seq
-
--- HsFunTy
 transpose_ m@(Matrix seq) = Matrix (Seq.fromList (Data.List.map (`getColumn` m) [0 .. Seq.length seq -1]))
 
--- HsFunTy
-adjugate = transpose_ . cofactor
 
 buildIdentityMatrix (Matrix seq) = Matrix $ Seq.mapWithIndex (\i row -> Seq.mapWithIndex (\j _ -> if i == j then 1 else 0) row) seq
 
@@ -91,11 +62,6 @@ isIdentityMatrix (Matrix seq) =
     isIdentityRow j row = Seq.foldlWithIndex (\ acc index value -> acc && (value == (if index == j then 1 else 0))) True row
   in Seq.foldlWithIndex (\ acc index row -> acc && isIdentityRow index row) True seq
 
--- HsFunTy
-inverse m@(Matrix seq) =
-  case det m of
-    0.0 -> Nothing
-    d -> Just $ adjugate m `divideBy` d
 
 concatenate (Matrix seq1) (Matrix seq2) = Seq.zipWith (><) seq1 seq2
 
