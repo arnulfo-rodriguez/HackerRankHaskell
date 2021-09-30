@@ -15,9 +15,10 @@ import Data.Function as Function
 import Data.List
 import Data.Sequence as Seq
 
-newtype Matrix = Matrix (Seq (Seq Double)) deriving (Show)
+newtype Matrix = Matrix (Seq (Seq Rational)) deriving (Show)
 
-data IndexAndValueLeftMostNonZero = BiggestLeftMostTuple Int Double deriving (Eq)
+data IndexAndValueLeftMostNonZero = BiggestLeftMostTuple Int Rational deriving (Eq,Show)
+
 
 instance Ord IndexAndValueLeftMostNonZero where
   (BiggestLeftMostTuple index1 value1) `compare` (BiggestLeftMostTuple index2 value2) = case index1 `compare` index2 of
@@ -57,7 +58,7 @@ det m@(Matrix seq)
     Data.List.sum $
       Data.List.map
         ( \i ->
-            let v1 :: Double
+            let v1 :: Rational
                 v1 = (-1.0) ^ (i + 1)
                 value = ((seq `Seq.index` i) `Seq.index` 0)
                 nextDet = det (minor m i 0)
@@ -111,33 +112,33 @@ sortByBiggestLeftmost startingRowIndex matrix =
   let (left, right) = Seq.splitAt startingRowIndex matrix
    in left >< Seq.sortBy (compare `on` indexAndValueNonZero) right
 
-multiplyAndAddRows factor = Seq.zipWith (\v1 v2 -> factor * v1 + v2)
+multiplyAndAddRows factor = Seq.zipWith (\v1 v2 -> (factor * v1) + v2)
 
 
 convertFirstColNonZeroToOne m originalMatrixSide rowIndex =
   let (h, row :<| t) = Seq.splitAt rowIndex m
       (BiggestLeftMostTuple _ value) = indexAndValueNonZero (Seq.take originalMatrixSide row)
-      inverseValue =  1 / value
+      inverseValue =  if value == 1.0 then 1.0 else 1.0 / value
    in (h |> Seq.mapWithIndex (\_ v -> v * inverseValue) row) >< t
    
 convertCellsInPivotColToZero rowIndex originalMatrixSide m =
   let pivotRow  = m `Seq.index` rowIndex
       (BiggestLeftMostTuple pivotCol _) = indexAndValueNonZero (Seq.take originalMatrixSide pivotRow)
-      transformedRows = Seq.mapWithIndex (\idx row -> if idx == rowIndex then row else multiplyAndAddRows (-1 * (row `Seq.index` pivotCol)) pivotRow row) m
+      transformedRows = Seq.mapWithIndex (\idx row -> if (idx == rowIndex) || (row `Seq.index` pivotCol) == 0.0 then row else multiplyAndAddRows (-1.0 * (row `Seq.index` pivotCol)) pivotRow row) m
    in transformedRows
 
+gaussJordanStep originalMatrixSide matrix index =  convertCellsInPivotColToZero
+                                                             index
+                                                             originalMatrixSide
+                                                             (convertFirstColNonZeroToOne (sortByBiggestLeftmost index matrix) originalMatrixSide index)
+  
 
 inverseGaussJordan theMatrix@(Matrix seq) =
   let partitionedMatrix = concatenate theMatrix (buildIdentityMatrix theMatrix)
       originalMatrixSide = Seq.length seq
       invertedPartitionMatrix =
         Data.List.foldl
-          ( \matrix index ->
-              convertCellsInPivotColToZero
-                index
-                originalMatrixSide
-                (convertFirstColNonZeroToOne (sortByBiggestLeftmost index matrix) originalMatrixSide index)
-          )
+          (gaussJordanStep originalMatrixSide)
           partitionedMatrix
           [0 .. (originalMatrixSide -1)]
       inverted =  Seq.mapWithIndex (\_ row -> Seq.drop originalMatrixSide row) invertedPartitionMatrix

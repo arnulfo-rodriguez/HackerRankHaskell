@@ -22,7 +22,7 @@ data Position = Position Int Int deriving(Eq,Show,Ord)
 data Cell = Free  | Mine  | Obstacle  | Exit  | Initial  | Tunnel Position  deriving(Eq,Show)
 data MazeBuilder = MazeBuilder (Maybe Position) (Seq (Seq Cell))
 data Maze = EmptyMaze | Maze Position (Seq (Seq Cell))  deriving(Eq,Show)
-data Node = EmptyNode | Node Cell Position Double [Position] deriving(Eq,Show)
+data Node = EmptyNode | Node Cell Position Rational [Position] deriving(Eq,Show)
 data ProbabilityGraph = EmptyGraph | ProbabilityGraph Position (Seq (Seq Node)) deriving(Show)
 
 
@@ -62,8 +62,9 @@ getStartingPositionNode (ProbabilityGraph (Position i j) nodes) = (nodes `Seq.in
 indexOf node nodes = let newSeq = Seq.takeWhileL (/= node)  nodes
                      in if Seq.length newSeq == Seq.length nodes then -1 else Seq.length newSeq
 
-getFundamentalMatrix m = Matrix.inverseGaussJordan (buildIdentityMatrix m `subtractMatrix` m)
+getFundamentalMatrix m = Matrix.inverseGaussJordan ((buildIdentityMatrix m) `subtractMatrix` m)
 -- HsAppTy
+fromStartToExit:: ProbabilityGraph -> Double
 fromStartToExit EmptyGraph = 0
 fromStartToExit p = let     
                                      (countAbsorvingStates, sortedNodes) = partitionNodes p
@@ -79,7 +80,8 @@ fromStartToExit p = let
                                             Just m -> Just $ m `multiply` r
                                             Nothing -> Nothing
                              in  case fr of
-                                    Just matrix ->    Data.Foldable.sum $
+                                    Just matrix ->    fromRational $
+                                                      Data.Foldable.sum $
                                                       Seq.mapWithIndex (\ _ (_,p) -> p) $
                                                       Seq.filter (\case {(Node Exit _ _ _,_) -> True; _ -> False})  $
                                                       Seq.zip (Seq.take countAbsorvingStates sortedNodes)
