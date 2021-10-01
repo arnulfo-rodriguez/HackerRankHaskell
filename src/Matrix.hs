@@ -18,7 +18,6 @@ newtype Matrix = Matrix (Seq (Seq Rational)) deriving (Show)
 
 data IndexAndValueLeftMostNonZero = BiggestLeftMostTuple Int Rational deriving (Eq,Show)
 
-
 instance Ord IndexAndValueLeftMostNonZero where
   (BiggestLeftMostTuple index1 value1) `compare` (BiggestLeftMostTuple index2 value2) = case index1 `compare` index2 of
     EQ -> value2 `compare` value1
