@@ -13,7 +13,6 @@ import Data.Foldable
 import Data.Function as Function
 import Data.List
 import Data.Sequence as Seq
-
 newtype Matrix = Matrix (Seq (Seq Rational)) deriving (Show)
 
 data IndexAndValueLeftMostNonZero = BiggestLeftMostTuple Int Rational deriving (Eq,Show)
@@ -41,7 +40,7 @@ getRow i (Matrix seq) = seq `Seq.index` i
 -- HsFunTy
 multiply (Matrix seq1) m2@(Matrix seq2) =
   let getCellMultiplication row column = Data.Foldable.sum $ Seq.zipWith (*) row column
-      getRowMultiplication currentRow = Seq.fromList $ Data.List.map (\i -> getCellMultiplication currentRow (getColumn i m2)) [0 .. Seq.length (seq2 `index` 0) -1]
+      getRowMultiplication currentRow = Seq.fromList $ Data.List.map (\i -> getCellMultiplication currentRow (getColumn i m2)) [0 .. Seq.length (seq2 `Seq.index` 0) -1]
    in Matrix $ Seq.mapWithIndex (\_ currentRow -> getRowMultiplication currentRow) seq1
 
 -- HsFunTy
@@ -66,12 +65,13 @@ concatenate (Matrix seq1) (Matrix seq2) = Seq.zipWith (><) seq1 seq2
 
 isAllZeroes max seq = Prelude.all (== 0) (Seq.take max seq)
 
-indexAndValueNonZero Seq.Empty = error "all zeros row"
+indexAndValueNonZero Seq.Empty = Nothing
 indexAndValueNonZero (h :<| seq)
   | h == 0 =
-    let (BiggestLeftMostTuple index value) = indexAndValueNonZero seq
-     in BiggestLeftMostTuple (index + 1) value
-  | otherwise = BiggestLeftMostTuple 0 h
+     case indexAndValueNonZero seq of 
+       Just (BiggestLeftMostTuple index value) -> Just (BiggestLeftMostTuple (index + 1) value)
+       _ -> Nothing 
+  | otherwise = Just (BiggestLeftMostTuple 0 h)
 
 sortByBiggestLeftmost startingRowIndex matrix =
   let (left, right) = Seq.splitAt startingRowIndex matrix
@@ -79,32 +79,42 @@ sortByBiggestLeftmost startingRowIndex matrix =
 
 multiplyAndAddRows factor = Seq.zipWith (\v1 v2 -> (factor * v1) + v2)
 
+getInverseValue row = case indexAndValueNonZero row of
+                         Just (BiggestLeftMostTuple _ value) -> Just (if value == 1.0 then 1.0 else 1.0 / value)
+                         Nothing -> Nothing
 
 convertFirstColNonZeroToOne m originalMatrixSide rowIndex =
   let (h, row :<| t) = Seq.splitAt rowIndex m
-      (BiggestLeftMostTuple _ value) = indexAndValueNonZero (Seq.take originalMatrixSide row)
-      inverseValue =  if value == 1.0 then 1.0 else 1.0 / value
-   in (h |> Seq.mapWithIndex (\_ v -> v * inverseValue) row) >< t
+      
+   in case getInverseValue (Seq.take originalMatrixSide row) of
+              Just inverseValue ->  Just ((h |> Seq.mapWithIndex (\_ v -> v * inverseValue) row) >< t)
+              Nothing -> Nothing
    
 convertCellsInPivotColToZero rowIndex originalMatrixSide m =
   let pivotRow  = m `Seq.index` rowIndex
-      (BiggestLeftMostTuple pivotCol _) = indexAndValueNonZero (Seq.take originalMatrixSide pivotRow)
-      transformedRows = Seq.mapWithIndex (\idx row -> if (idx == rowIndex) || (row `Seq.index` pivotCol) == 0.0 then row else multiplyAndAddRows (-1.0 * (row `Seq.index` pivotCol)) pivotRow row) m
-   in transformedRows
-
-gaussJordanStep originalMatrixSide matrix index =  convertCellsInPivotColToZero
-                                                             index
-                                                             originalMatrixSide
-                                                             (convertFirstColNonZeroToOne (sortByBiggestLeftmost index matrix) originalMatrixSide index)
+   in case indexAndValueNonZero (Seq.take originalMatrixSide pivotRow) of
+        Just (BiggestLeftMostTuple pivotCol _) -> Just (Seq.mapWithIndex (\idx row -> if (idx == rowIndex) || (row `Seq.index` pivotCol) == 0.0 then row else multiplyAndAddRows (-1.0 * (row `Seq.index` pivotCol)) pivotRow row) m)
+        Nothing -> Nothing
+        
+gaussJordanStep _ Nothing _ = Nothing
+gaussJordanStep originalMatrixSide (Just matrix) index =  case (convertFirstColNonZeroToOne (sortByBiggestLeftmost index matrix) originalMatrixSide index) of
+                                                      Just x ->    
+                                                                 convertCellsInPivotColToZero
+                                                                           index
+                                                                           originalMatrixSide
+                                                                           x
+                                                      Nothing -> Nothing
+                                                             
   
 
 inverseGaussJordan theMatrix@(Matrix seq) =
   let partitionedMatrix = concatenate theMatrix (buildIdentityMatrix theMatrix)
       originalMatrixSide = Seq.length seq
-      invertedPartitionMatrix =
+      invertedPartitionMatrixMaybe =
         Data.List.foldl
           (gaussJordanStep originalMatrixSide)
-          partitionedMatrix
+          (Just partitionedMatrix)
           [0 .. (originalMatrixSide -1)]
-      inverted =  Seq.mapWithIndex (\_ row -> Seq.drop originalMatrixSide row) invertedPartitionMatrix
-   in Just $ Matrix inverted
+  in case invertedPartitionMatrixMaybe of
+             Just invertedPartitionMatrix -> Just $ Matrix (Seq.mapWithIndex (\_ row -> Seq.drop originalMatrixSide row) invertedPartitionMatrix)
+             Nothing -> Nothing

@@ -18,9 +18,8 @@ import Matrix
 import Data.Maybe
 import Data.Foldable
 import Data.Function as Function
-
 data Position = Position Int Int deriving(Eq,Show,Ord)
-data Cell = Free  | Mine  | Obstacle  | Exit  | Initial  | Tunnel Position  deriving(Eq,Show)
+data Cell = Free  | Mine  | Obstacle  | Exit  | Initial  | Tunnel Position Cell deriving(Eq,Show)
 data MazeBuilder = MazeBuilder (Maybe Position) (Seq (Seq Cell))
 data Maze = EmptyMaze | Maze Position (Seq (Seq Cell))  deriving(Eq,Show)
 data Node = EmptyNode | Node Cell Position Rational [Position] deriving(Eq,Show)
@@ -63,7 +62,7 @@ getStartingPositionNode (ProbabilityGraph (Position i j) nodes) = (nodes `Seq.in
 indexOf node nodes = let newSeq = Seq.takeWhileL (/= node)  nodes
                      in if Seq.length newSeq == Seq.length nodes then -1 else Seq.length newSeq
 
-getFundamentalMatrix m = Matrix.inverseGaussJordan ((buildIdentityMatrix m) `subtractMatrix` m)
+getFundamentalMatrix m = inverseGaussJordan ((buildIdentityMatrix m) `subtractMatrix` m)
 -- HsAppTy
 fromStartToExit:: ProbabilityGraph -> Double
 fromStartToExit EmptyGraph = 0
@@ -100,7 +99,9 @@ addTunnel (Maze initial cells) i1 j1 i2 j2 =
       x2 = (i2 - 1)
       y2 = (j2 - 1)
       mazeUpdate :: Int -> Int -> Int -> Int -> Seq (Seq Cell) -> Seq (Seq Cell)
-      mazeUpdate x_1 y_1 x_2 y_2 myCells = Seq.update x_1  (Seq.update y_1 (Tunnel (Position x_2 y_2)) (Seq.index myCells x_1)) myCells
+      mazeUpdate x_1 y_1 x_2 y_2 myCells = 
+        let row = (Seq.index myCells x_1)
+        in Seq.update x_1  (Seq.update y_1 (Tunnel (Position x_2 y_2)  (row `Seq.index` y_1)) row) myCells
   in  Maze initial (mazeUpdate x2 y2 x1 y1 (mazeUpdate x1 y1 x2 y2 cells))
 -- HsFunTy
 addRow :: MazeBuilder -> [Cell] -> MazeBuilder
@@ -138,10 +139,10 @@ buildProbabilitiesGraph maze@(Maze start cells)
            buildProbabilitiesNode :: Int -> Int -> Cell -> Node
            buildProbabilitiesNode i j cell  =  case cell of
                                               Mine -> Node Mine (Position i j) 0.0 []
-                                              tunnel@(Tunnel (Position ni nj)) -> let ns = neighbors ni nj
-                                                                                      nsLength = Data.List.length ns
-                                                                                      neighborsProb = if nsLength == 0 then 0 else 1.0 / fromIntegral nsLength
-                                                                                   in Node tunnel (Position i j) neighborsProb (Data.List.map (\ (x,y,_) -> Position x y) ns)
+                                              tunnel@(Tunnel (Position ni nj) oldCell) -> let ns = neighbors ni nj
+                                                                                              nsLength = Data.List.length ns
+                                                                                              neighborsProb = if nsLength == 0 then 0 else 1.0 / fromIntegral nsLength
+                                                                                           in Node oldCell (Position i j) neighborsProb (Data.List.map (\ (x,y,_) -> Position x y) ns)
                                               Obstacle -> EmptyNode
                                               Exit -> Node Exit (Position i j) 0.0 []
                                               theCell -> let ns = neighbors i j
