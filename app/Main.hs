@@ -24,6 +24,7 @@ import Text.Printf
 import FrogInMaze
 
 
+
 lstrip = Data.Text.unpack . Data.Text.stripStart . Data.Text.pack
 rstrip = Data.Text.unpack . Data.Text.stripEnd . Data.Text.pack
 
