@@ -61,6 +61,6 @@ main = do
                     let j2 = read (secondMultipleInput !! 3) :: Int
 
                     return (i1,j1,i2,j2)
-    let toPrint = fromStartToExit (buildProbabilitiesGraph $ Data.List.foldl (\ m (i1,j1,i2,j2) -> addTunnel m i1 j1 i2 j2) maze tunnels)                
+    let toPrint = fromStartToExit (buildProbabilitiesGraph $ Data.List.foldl (\ m (i1,j1,i2,j2) -> addTunnel m i1 j1 i2 j2) maze tunnels)
     printf "%2f\n" toPrint
  

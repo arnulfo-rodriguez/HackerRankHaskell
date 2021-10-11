@@ -24,26 +24,8 @@ data Cell = Free  | Mine  | Obstacle  | Exit  | Initial  | Tunnel Position Cell 
 data MazeBuilder = MazeBuilder (Maybe Position) (Seq (Seq Cell))
 data Maze = EmptyMaze | Maze Position (Seq (Seq Cell))  deriving(Eq,Show)
 data Node = EmptyNode | Node Cell Position Rational [Position] deriving(Eq,Show)
-data ProbabilityGraph = EmptyGraph | ProbabilityGraph Position (Seq Node) deriving(Show)
+data ProbabilityGraph = EmptyGraph | ProbabilityGraph Position [Node] deriving(Show)
 
-
-getReachableNodesFromStart maze@(Maze (Position initialX initialY) cells) =
-  let 
-     neighborsIndexes i j = [(i,j-1),(i,j+1),(i-1,j),(i+1,j)]
-     neighbors i j  = Data.Foldable.concatMap (\ (ni,nj) -> Data.Maybe.maybeToList (canMove ni nj maze)) (neighborsIndexes i j)
-     traverseRecursive :: (Set (Position)) -> Int -> Int -> (Set (Position))
-     traverseRecursive visited i j  = let (Just cell) = cellAt i j cells
-                                          nbs = case cell of 
-                                                  (Tunnel (Position otherX otherY) _) ->  neighbors otherX otherY
-                                                  Free -> neighbors i j 
-                                                  Initial -> neighbors i j                                      
-                                                  Mine -> []
-                                                  Exit -> []
-                                          nbsToVisit = ((Set.fromList (Data.List.map (\ (ni,nj,_) -> (Position ni nj)) nbs)) `Set.difference` visited)
-                                          newVisited = visited `Set.union` nbsToVisit
-                                          otherNodes = Set.fold (\  (Position ni nj) acc -> acc `Set.union` traverseRecursive newVisited ni nj) Set.empty nbsToVisit
-                                      in newVisited `Set.union` otherNodes
-  in traverseRecursive Set.empty initialX initialY  
 -- HsFunTy
 isAbsorbingState :: Node -> Int
 isAbsorbingState (Node Exit _ _ _) = 1
@@ -59,7 +41,7 @@ partitionNodes (ProbabilityGraph _ seq) =
       sortedNodes :: Seq (Int,Node)
       sortedNodes = Seq.filter (\ (_,x) -> not (isEmptyNode x))  $ Seq.sortBy
           (compare `Function.on` negate . fst)
-          (Seq.mapWithIndex (\ _ value -> (isAbsorbingState value,value)) seq)
+          (Seq.fromList (Data.List.map (\ value -> (isAbsorbingState value,value)) seq))
   in Seq.foldlWithIndex (\ acc _ current -> let
                                               (i,currentNode) = current
                                               (total,nodes) = acc
@@ -78,7 +60,7 @@ getProbabilityOfTransition (Node _ pos1 prob neighbors) n2@(Node _ pos2 _ _)
 -- HsFunTy
 getStartingPositionNode (ProbabilityGraph _ nodes) = 
   let  isInitialNode = (\case {(Node Initial _ _ _) -> True; _ -> False})
-  in Seq.filter isInitialNode nodes `Seq.index` 0
+  in Data.List.head $ Data.List.filter isInitialNode nodes 
   
 indexOf node nodes = let newSeq = Seq.takeWhileL (/= node)  nodes
                      in if Seq.length newSeq == Seq.length nodes then -1 else Seq.length newSeq
@@ -151,14 +133,38 @@ canMove i j (Maze _ cells) = case cellAt i j cells of
                      Nothing -> Nothing
                      Just Obstacle -> Nothing
                      (Just cell) -> Just (i,j,cell)
+
+
+neighbors (Position xi xj)  maze@(Maze _ cells) =
+  let
+    neighborsIndexes i j = [(i,j-1),(i,j+1),(i-1,j),(i+1,j)]
+    myNeighbors i j = Data.Foldable.concatMap (\ (ni,nj) -> Data.Maybe.maybeToList (canMove ni nj maze)) (neighborsIndexes i j)
+  in case (Data.Maybe.fromJust (cellAt xi xj cells)) of
+        (Tunnel (Position otherX otherY) _) ->  myNeighbors otherX otherY
+        Free -> myNeighbors xi xj 
+        Initial -> myNeighbors xi xj                                      
+        Mine -> []
+        Exit -> []
+
+traverseMaze maze@(Maze initial cells) =
+  let
+     traverseMazeRec:: (Set Position) -> Position -> [Position]
+     traverseMazeRec visited current =
+        let
+          pendingNeighbors =  Data.List.filter (\ p -> not (Set.member p visited)) $ Data.List.map (\ (ni,nj,_) -> (Position ni nj)) $ neighbors current maze
+          newVisited = (visited `Set.union` (Set.fromList pendingNeighbors))
+        in current:(Data.Foldable.concatMap (traverseMazeRec newVisited) pendingNeighbors)
+ in nub $ traverseMazeRec (Set.singleton initial) initial
+
+
 -- HsFunTy
 buildProbabilitiesGraph EmptyMaze = EmptyGraph
 buildProbabilitiesGraph maze@(Maze start cells)
  | not (hasExits maze) = EmptyGraph
  | True = let
            neighborsIndexes i j = [(i,j-1),(i,j+1),(i-1,j),(i+1,j)]
-           neighbors i j  = Data.Foldable.concatMap (\ (ni,nj) -> Data.Maybe.maybeToList (canMove ni nj maze)) (neighborsIndexes i j) 
-           nodesToProcess = getReachableNodesFromStart maze
+           neighbors i j  = Data.Foldable.concatMap (\ (ni,nj) -> Data.Maybe.maybeToList (canMove ni nj maze)) (neighborsIndexes i j)
+           nodesToProcess = traverseMaze maze
            buildProbabilitiesNode :: Int -> Int -> Cell -> Node
            buildProbabilitiesNode i j cell  =  case cell of
                                               Mine -> Node Mine (Position i j) 0.0 []
@@ -173,7 +179,7 @@ buildProbabilitiesGraph maze@(Maze start cells)
                                                              neighborsProb = if nsLength == 0 then 0 else 1.0 / fromIntegral nsLength
                                                          in Node theCell (Position i j) neighborsProb (Data.List.map (\ (x,y,_) -> Position x y) ns)
         in
-         ProbabilityGraph start $ Seq.fromList $ Data.List.map (\ (Position i j) -> let (Just cell) = cellAt i j cells in buildProbabilitiesNode i j cell) (Set.toList nodesToProcess)
+         ProbabilityGraph start $ Data.List.map (\ (Position i j) -> let (Just cell) = cellAt i j cells in buildProbabilitiesNode i j cell) nodesToProcess
 
 -- HsFunTy
 newCell :: Char -> Cell
