@@ -5,7 +5,9 @@ module Matrix
     getRow,
     buildIdentityMatrix,
     inverseGaussJordan,
-    subMatrix
+    getCell,
+    subMatrix,
+    getDimensions
   )
 where
 
@@ -36,6 +38,13 @@ getColumn i (Matrix seq) = Seq.mapWithIndex (\_ v -> v `Seq.index` i) seq
 
 -- HsFunTy
 getRow i (Matrix seq) = seq `Seq.index` i
+
+getCell i j m = getRow i m `Seq.index` j 
+
+
+getDimensions m@(Matrix seq) = let rowsCount = Seq.length seq
+                                   colsCount =  if rowsCount > 0 then Seq.length (getRow 0 m) else 0 
+                                in (rowsCount,colsCount)
 
 -- HsFunTy
 multiply (Matrix seq1) m2@(Matrix seq2) =
