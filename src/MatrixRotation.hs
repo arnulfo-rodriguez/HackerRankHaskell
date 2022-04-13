@@ -1,16 +1,17 @@
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE OverloadedStrings #-}
 
-module MatrixRotation where
+
+module MatrixRotation
+(matrixRotation, showMatrix)
+where
 
 import Data.Sequence as Seq
 import Data.List as List
 import Matrix
 import Data.Ratio as Ratio
-
-data LayeredMatrix = EmptyLayeredMatrix | LayeredMatrix Int Int [Int]  LayeredMatrix
-
-data TraverseStatus = TopRow | LeftCol | BottomRow | RightCol
-
+import Text.Printf as Printf
+import Control.Monad as Monad
 
 outerLayerIndexes n m =
   let
@@ -43,6 +44,17 @@ getMatrixRow  ((_,leftCol,bottomRow,rightCol) :<| rest) n
 
 toCellValues:: Matrix ->  Seq (Int,Int) -> Seq Rational
 toCellValues m = Seq.mapWithIndex (\ _ (x, y) -> getCell x y m)
+
+showMatrix (Matrix sq) =
+  let
+      showRow :: Seq Rational -> IO (Seq ())
+      showRow row = forM row (\ number -> do
+                                            putStr $ printf "%d " (Ratio.numerator number))
+  in forM sq (\ row -> 
+                   do 
+                     _ <- showRow row
+                     putStrLn ""
+                     )
 
 matrixRotation :: Matrix -> Int -> Matrix
 matrixRotation m r =

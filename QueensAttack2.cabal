@@ -39,6 +39,7 @@ library
       ConnectedCells
       FrogInMaze
       Matrix
+      MatrixRotation
   other-modules:
       Paths_QueensAttack2
   hs-source-dirs:
