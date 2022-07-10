@@ -40,6 +40,7 @@ library
       FrogInMaze
       Matrix
       MatrixRotation
+      InsertionSort
   other-modules:
       Paths_QueensAttack2
   hs-source-dirs:
