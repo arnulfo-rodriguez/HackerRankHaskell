@@ -12,7 +12,6 @@ import Debug.Trace
 import System.Environment
 import System.IO
 import System.IO.Unsafe
-import InsertionSort
 
 --
 -- Complete the 'insertionSort' function below.
@@ -25,24 +24,32 @@ import InsertionSort
 lstrip = Data.Text.unpack . Data.Text.stripStart . Data.Text.pack
 rstrip = Data.Text.unpack . Data.Text.stripEnd . Data.Text.pack
 
+getDigits n
+  | n < 10 = [n]
+  | n > 0 = let
+              modulus = n `mod` 10
+              divResult = n `div` 10
+            in modulus : getDigits divResult
+
+superDigit n =
+  let
+    firstSuperDigit = Data.List.sum (getDigits n)
+  in if firstSuperDigit < 10 then firstSuperDigit else superDigit firstSuperDigit
+
+superDigitWithList [] = 0
+superDigitWithList [first] = first  
+superDigitWithList (first:second:rest) = superDigit $ superDigit (first + second) + superDigitWithList rest
+
+superDigitWithK n k =
+  let 
+    firstSuperDigit = superDigitWithList n
+    result = superDigitWithList $ Data.List.replicate k firstSuperDigit
+  in result 
+
 main :: IO()
 main = do
-    fptr <- openFile "output.txt" WriteMode
-
-    tTemp <- getLine
-    let t = read $ lstrip $ rstrip tTemp :: Int
-
-    forM_ [1..t] $ \t_itr -> do
-        nTemp <- getLine
-        let n = read $ lstrip $ rstrip nTemp :: Int
-
-        arrTemp <- getLine
-
-        let arr = Data.List.map (read :: String -> Int) . Data.List.words $ rstrip arrTemp
-
-        let result = insertionSort arr
-
-        hPutStrLn fptr $ show result
-
-    hFlush fptr
-    hClose fptr
+    firstMultipleInputTemp <- getLine
+    let firstMultipleInput = Data.List.words $ rstrip firstMultipleInputTemp
+    let n = Data.List.map (\x -> read x :: Int) $  Data.List.map (:[]) $ firstMultipleInput !! 0
+    let k = read (firstMultipleInput !! 1) :: Int
+    print $ superDigitWithK n k
