@@ -13,43 +13,94 @@ import System.Environment
 import System.IO
 import System.IO.Unsafe
 
---
--- Complete the 'insertionSort' function below.
---
--- The function is expected to return an INTEGER.
--- The function accepts INTEGER_ARRAY arr as parameter.
---    
--- Write your code here
+type NodeValue = Int
+data BinaryTree = EmptyBinaryTree | BinaryTree NodeValue BinaryTree BinaryTree | Leaf NodeValue deriving (Show)
+data TreeBuilder = EBuilder | LBuilder NodeValue | RBuilder NodeValue | BBuilder NodeValue NodeValue
 
-lstrip = Data.Text.unpack . Data.Text.stripStart . Data.Text.pack
-rstrip = Data.Text.unpack . Data.Text.stripEnd . Data.Text.pack
+childrenCount EBuilder = 0
+childrenCount (LBuilder _) = 1
+childrenCount (RBuilder _) = 1
+childrenCount (BBuilder _ _) = 2
 
-getDigits n
-  | n < 10 = [n]
-  | n > 0 = let
-              modulus = n `mod` 10
-              divResult = n `div` 10
-            in modulus : getDigits divResult
+buildParentPromise :: TreeBuilder -> [Int -> BinaryTree] -> (Int -> BinaryTree,[Int -> BinaryTree])
+buildParentPromise EBuilder childrenPromises = (Leaf, childrenPromises)
 
-superDigit n =
+buildParentPromise (RBuilder rValue) [] = (\parentValue -> BinaryTree parentValue EmptyBinaryTree (Leaf rValue), [])
+buildParentPromise (RBuilder rValue) (first:rest) = (\parentValue -> BinaryTree parentValue EmptyBinaryTree (first rValue), rest)
+
+buildParentPromise (LBuilder lValue) [] = (\parentValue -> BinaryTree parentValue (Leaf lValue) EmptyBinaryTree, [])
+buildParentPromise (LBuilder lValue) (first:rest) = (\parentValue -> BinaryTree parentValue (first lValue) EmptyBinaryTree, rest)
+
+buildParentPromise (BBuilder lValue rValue) [] = (\parentValue -> BinaryTree parentValue (Leaf lValue) (Leaf rValue), [])
+buildParentPromise (BBuilder lValue rValue) [first] = (\parentValue -> BinaryTree parentValue (first lValue) (Leaf rValue), [])
+buildParentPromise (BBuilder lValue rValue) (first:second:rest) = (\  parentValue -> BinaryTree parentValue (first lValue) (second rValue), rest)
+
+buildAll:: [TreeBuilder] -> [Int -> BinaryTree] -> [Int -> BinaryTree]
+buildAll [] [] = []
+buildAll (currentBuilder:nextBuilders) nextLevelPromises =
   let
-    firstSuperDigit = Data.List.sum (getDigits n)
-  in if firstSuperDigit < 10 then firstSuperDigit else superDigit firstSuperDigit
+    (result1,remainingPromises) = buildParentPromise currentBuilder nextLevelPromises
+  in result1:buildAll nextBuilders remainingPromises
 
-superDigitWithList [] = 0
-superDigitWithList [first] = first  
-superDigitWithList (first:second:rest) = superDigit $ superDigit (first + second) + superDigitWithList rest
+getBuilders = Data.List.map getBuilder
 
-superDigitWithK n k =
-  let 
-    firstSuperDigit = superDigitWithList n
-    result = superDigitWithList $ Data.List.replicate k firstSuperDigit
-  in result 
+getBuilder (left,right)
+ | left == -1 && right == -1 = EBuilder
+ | left == -1 = RBuilder right
+ | right == -1 = LBuilder left
+ | otherwise = BBuilder left right
+
+buildChildren:: Int -> [TreeBuilder] -> [Int -> BinaryTree]
+buildChildren totalChildren [] = Data.List.replicate totalChildren Leaf
+buildChildren totalChildren nodes
+  | totalChildren > 0 =
+      let
+        (thisLevel,nextLevels) = Data.List.splitAt totalChildren nodes
+        nextLevelTotalChildren = sum $ Data.List.map childrenCount thisLevel
+        nextLevelChildrenPromises = buildChildren nextLevelTotalChildren nextLevels
+      in buildAll thisLevel nextLevelChildrenPromises
+  | otherwise = []
+
+buildTree pairs =
+  let
+    [l1] = buildChildren 1 $ getBuilders pairs
+  in l1 1
+
+traverseInorder EmptyBinaryTree = []
+traverseInorder (BinaryTree value left right) = traverseInorder left ++ (value:traverseInorder right)
+traverseInorder (Leaf value) = [value]
+
+swapRec:: [Int] -> Int -> BinaryTree -> BinaryTree
+swapRec allLevels@(level:nextLevels) currentLevel (BinaryTree value leftChild rightChild)
+  | level == currentLevel = BinaryTree value (swapRec nextLevels (currentLevel + 1) rightChild) (swapRec nextLevels (currentLevel + 1) leftChild)
+  | otherwise = BinaryTree value (swapRec allLevels (currentLevel + 1) leftChild) (swapRec allLevels (currentLevel + 1) rightChild)
+
+swapRec _ _ leaf@(Leaf _) = leaf
+swapRec _ _ leaf@EmptyBinaryTree = leaf
+
+swap k = swapRec (levels k) 1
+
+
+levels k = Data.List.map (*k) [1..]
+
+
+swapNTimes levels pairs = Data.List.reverse $ Data.List.map traverseInorder $ Data.List.init $ Data.List.foldl (\ t current -> swap current (Data.List.head t):t) [buildTree pairs] levels
 
 main :: IO()
 main = do
-    firstMultipleInputTemp <- getLine
-    let firstMultipleInput = Data.List.words $ rstrip firstMultipleInputTemp
-    let n = Data.List.map (\x -> read x :: Int) $  Data.List.map (:[]) $ firstMultipleInput !! 0
-    let k = read (firstMultipleInput !! 1) :: Int
-    print $ superDigitWithK n k
+    numberOfPairsStr <- getLine
+    let numberOfPairs =  read  numberOfPairsStr :: Int
+    pairs <- forM [1..numberOfPairs] $ \_ -> do
+                                            line <- getLine
+                                            let [a,b] = Data.List.words line
+                                            return (read a :: Int,read b :: Int)
+    numberOfSwapsStr <- getLine
+    let numberOfSwaps =  read numberOfSwapsStr :: Int
+    swaps <- forM [1..numberOfSwaps] $ \_ -> do
+                                              line <- getLine
+                                              let castedLine = read line :: Int
+                                              return castedLine
+
+    let traversedTrees = swapNTimes swaps pairs
+    forM_ traversedTrees $ \tree -> do
+          putStrLn $ Data.List.unwords $ Data.List.map show tree

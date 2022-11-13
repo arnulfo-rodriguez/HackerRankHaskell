@@ -1,4 +1,16 @@
-module SwapNodes where
+module SwapNodes
+(swapNTimes) where
+
+import Control.Monad
+import Data.Array
+import Data.Bits
+import Data.List
+import Data.Set
+import Data.Text
+import Debug.Trace
+import System.Environment
+import System.IO
+import System.IO.Unsafe
 
 type NodeValue = Int
 data BinaryTree = EmptyBinaryTree | BinaryTree NodeValue BinaryTree BinaryTree | Leaf NodeValue deriving (Show)
@@ -29,7 +41,7 @@ buildAll (currentBuilder:nextBuilders) nextLevelPromises =
     (result1,remainingPromises) = buildParentPromise currentBuilder nextLevelPromises
   in result1:buildAll nextBuilders remainingPromises
 
-getBuilders = map getBuilder
+getBuilders = Data.List.map getBuilder
 
 getBuilder (left,right)
  | left == -1 && right == -1 = EBuilder
@@ -38,12 +50,12 @@ getBuilder (left,right)
  | otherwise = BBuilder left right
 
 buildChildren:: Int -> [TreeBuilder] -> [Int -> BinaryTree]
-buildChildren totalChildren [] = replicate totalChildren Leaf
+buildChildren totalChildren [] = Data.List.replicate totalChildren Leaf
 buildChildren totalChildren nodes
   | totalChildren > 0 =
       let
-        (thisLevel,nextLevels) = splitAt totalChildren nodes
-        nextLevelTotalChildren = sum $ map childrenCount thisLevel
+        (thisLevel,nextLevels) = Data.List.splitAt totalChildren nodes
+        nextLevelTotalChildren = sum $ Data.List.map childrenCount thisLevel
         nextLevelChildrenPromises = buildChildren nextLevelTotalChildren nextLevels
       in buildAll thisLevel nextLevelChildrenPromises
   | otherwise = []
@@ -72,4 +84,4 @@ levels k =
 
 swap k = swapRec (levels k) 1
 
-swapNTimes levels pairs = reverse $ map traverseInorder $ init $ foldl (\ t current -> swap current (head t):t) [buildTree pairs] levels
+swapNTimes levels pairs = Data.List.reverse $ Data.List.map traverseInorder $ Data.List.init $ Data.List.foldl (\ t current -> swap current (Data.List.head t):t) [buildTree pairs] levels

@@ -41,6 +41,7 @@ library
       Matrix
       MatrixRotation
       InsertionSort
+      SwapNodes
   other-modules:
       Paths_QueensAttack2
   hs-source-dirs:
