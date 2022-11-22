@@ -1,20 +1,9 @@
-{-# LANGUAGE DuplicateRecordFields, FlexibleInstances, UndecidableInstances #-}
+module PasswordCracker(crackPasswords) where
 
-module Main where
-
-import Control.Monad
-import Data.Array
-import Data.Bits
-import Data.Set
-import Data.Text
-import Debug.Trace
-import System.Environment
-import System.IO
-import System.IO.Unsafe
-import Data.Map (Map)
 import qualified Data.Map as Map
 import qualified Data.Maybe as Maybe
 import qualified Data.List as List
+import Data.Map (Map)
 
 type ChildNodes = Map Char PasswordsTrie
 type IsWordEnd = Bool
@@ -70,13 +59,3 @@ crackPasswords password validPasswords =
     trie = List.foldl (flip addWord) (RootNode Map.empty) validPasswords
     result =  isInLanguage password trie
   in Maybe.maybe "WRONG PASSWORD" List.unwords result
-main :: IO()
-main = do
-    numberOfCasesStr <- getLine
-    let numberOfCases =  read  numberOfCasesStr :: Int
-    forM_ [1..numberOfCases] $ \_ -> do
-                                        _ <- getLine
-                                        wordsStr <- getLine
-                                        let wrds = List.words wordsStr 
-                                        passwordToCheck <- getLine
-                                        putStrLn $ crackPasswords passwordToCheck wrds
