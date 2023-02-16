@@ -58,30 +58,31 @@ allPositionsInBoard :: Int -> (Seq Position)
 allPositionsInBoard size =
   let indexes = [1..size]
   in Seq.fromList $ [Position index1 index2 | index1 <- indexes, index2 <- indexes]
+
 atLeastNRowsRemaining :: Int -> Seq Position -> Bool
 atLeastNRowsRemaining numRows cells =
   let
     totalRows = Data.Set.size $ Prelude.foldl (flip Data.Set.insert) Data.Set.empty $ fmap (\ (Position x _) -> x) cells
   in totalRows >= numRows
 
-placeNSuperQueens :: Board -> (Seq Position) -> [Board]
-placeNSuperQueens board@(Board size superQueens) Empty
+findAllBoardsForNQueens :: Board -> (Seq Position) -> [Board]
+findAllBoardsForNQueens board@(Board size superQueens) Empty
   |  Seq.length superQueens == size = [board]
   | otherwise = []
 
-placeNSuperQueens (Board size superQueens) allRemaining@((Position x y) :<| _)
- | (y == 1) && (x > 1) && not (List.any (\ (Position prevX _ ) -> prevX == (x - 1 ))  superQueens) = []
+findAllBoardsForNQueens (Board size superQueens) allRemaining@((Position x y) :<| _)
+ | (y == 1) && (x > 1) && (not . List.any (\(Position prevX _) -> prevX == (x - 1)))  superQueens = []
  | not (atLeastNRowsRemaining (size - Seq.length superQueens) allRemaining) = []
 
-placeNSuperQueens board@(Board size superQueens) (nextPosition :<| remainingPositions)
+findAllBoardsForNQueens board@(Board size superQueens) (nextPosition :<| remainingPositions)
  | Seq.length superQueens == size = [board]
  | Seq.length superQueens < size  =
     let
        newBoard =  Board size (nextPosition <| superQueens)
        newPositions = prune newBoard remainingPositions
-    in placeNSuperQueens newBoard newPositions ++ placeNSuperQueens board remainingPositions
- | otherwise = placeNSuperQueens board remainingPositions
+    in findAllBoardsForNQueens newBoard newPositions ++ findAllBoardsForNQueens board remainingPositions
+ | otherwise = findAllBoardsForNQueens board remainingPositions
 
 prune board = Seq.filter (`canPlaceSuperQueen` board)
 
-countSuperQueens side = List.length $ placeNSuperQueens (Board side Seq.empty) $ allPositionsInBoard side
+countSuperQueens side = List.length $ findAllBoardsForNQueens (Board side Seq.empty) $ allPositionsInBoard side
