@@ -4,16 +4,7 @@ module SuperQueens
 (countSuperQueens)
 where
 
-import Control.Monad
-import Data.Array
-import Data.Bits
 import Data.Set
-import Data.Text
-import Debug.Trace
-import System.Environment
-import System.IO
-import System.IO.Unsafe
-import Data.Map (Map)
 import qualified Data.Map as Map
 import qualified Data.Maybe as Maybe
 import qualified Data.List as List
@@ -50,9 +41,8 @@ canPlaceSuperQueen newSuperQueen (Board _ superQueens) =
                                           superQueensOverlapVertically currentSuperQueen newSuperQueen ||
                                           superQueensOverlapDiagonally currentSuperQueen newSuperQueen ||
                                           superQueenOverlapInL currentSuperQueen newSuperQueen
-   checkAllPlacedQueens Seq.Empty = True
-   checkAllPlacedQueens (currentSuperQueen :<| remainingSuperQueens) = not(superQueensOverlap currentSuperQueen) && checkAllPlacedQueens remainingSuperQueens
-  in checkAllPlacedQueens superQueens
+   discardOverlaps = not.any superQueensOverlap
+  in discardOverlaps superQueens
 
 allPositionsInBoard :: Int -> (Seq Position)
 allPositionsInBoard size =
@@ -76,12 +66,11 @@ findAllBoardsForNQueens (Board size superQueens) allRemaining@((Position x y) :<
 
 findAllBoardsForNQueens board@(Board size superQueens) (nextPosition :<| remainingPositions)
  | Seq.length superQueens == size = [board]
- | Seq.length superQueens < size  =
+ | otherwise =
     let
        newBoard =  Board size (nextPosition <| superQueens)
        newPositions = prune newBoard remainingPositions
     in findAllBoardsForNQueens newBoard newPositions ++ findAllBoardsForNQueens board remainingPositions
- | otherwise = findAllBoardsForNQueens board remainingPositions
 
 prune board = Seq.filter (`canPlaceSuperQueen` board)
 
