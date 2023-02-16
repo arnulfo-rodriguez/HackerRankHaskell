@@ -1,12 +1,24 @@
 {-# LANGUAGE TupleSections #-}
 
-module SuperQueens where
+module SuperQueens
+(countSuperQueens)
+where
 
-import Data.Map
+import Control.Monad
+import Data.Array
+import Data.Bits
 import Data.Set
-import Data.List as List
-import Data.Maybe
+import Data.Text
+import Debug.Trace
+import System.Environment
+import System.IO
+import System.IO.Unsafe
+import Data.Map (Map)
+import qualified Data.Map as Map
+import qualified Data.Maybe as Maybe
+import qualified Data.List as List
 import Data.Sequence as Seq
+
 
 type Side = Int
 type X = Int
@@ -30,10 +42,10 @@ superQueenOverlapInL (Position x1 y1) pos2 =
                            Position (x1 - 1) (y1 + 2),
                            Position (x1 + 1) (y1 - 2),
                            Position (x1 + 1) (y1 + 2)]
- in (isJust . List.find (== pos2)) possiblePositions
- 
+ in (Maybe.isJust . List.find (== pos2)) possiblePositions
+
 canPlaceSuperQueen newSuperQueen (Board _ superQueens) =
-  let 
+  let
    superQueensOverlap currentSuperQueen = superQueensOverlapHorizontally currentSuperQueen newSuperQueen ||
                                           superQueensOverlapVertically currentSuperQueen newSuperQueen ||
                                           superQueensOverlapDiagonally currentSuperQueen newSuperQueen ||
@@ -42,22 +54,34 @@ canPlaceSuperQueen newSuperQueen (Board _ superQueens) =
    checkAllPlacedQueens (currentSuperQueen :<| remainingSuperQueens) = not(superQueensOverlap currentSuperQueen) && checkAllPlacedQueens remainingSuperQueens
   in checkAllPlacedQueens superQueens
 
-allPositionsInBoard :: Int -> [Position]
+allPositionsInBoard :: Int -> (Seq Position)
 allPositionsInBoard size =
   let indexes = [1..size]
-  in List.concatMap (\ index1 -> List.map (Position index1) indexes)  indexes
-  
-placeNSuperQueens :: Board -> [Position] -> [Board]
-placeNSuperQueens board@(Board size superQueens) [] 
+  in Seq.fromList $ [Position index1 index2 | index1 <- indexes, index2 <- indexes]
+atLeastNRowsRemaining :: Int -> Seq Position -> Bool
+atLeastNRowsRemaining numRows cells =
+  let
+    totalRows = Data.Set.size $ Prelude.foldl (flip Data.Set.insert) Data.Set.empty $ fmap (\ (Position x _) -> x) cells
+  in totalRows >= numRows
+
+placeNSuperQueens :: Board -> (Seq Position) -> [Board]
+placeNSuperQueens board@(Board size superQueens) Empty
   |  Seq.length superQueens == size = [board]
   | otherwise = []
-  
-placeNSuperQueens board@(Board size superQueens) (nextPosition:remainingPositions)
+
+placeNSuperQueens (Board size superQueens) allRemaining@((Position x y) :<| _)
+ | (y == 1) && (x > 1) && not (List.any (\ (Position prevX _ ) -> prevX == (x - 1 ))  superQueens) = []
+ | not (atLeastNRowsRemaining (size - Seq.length superQueens) allRemaining) = []
+
+placeNSuperQueens board@(Board size superQueens) (nextPosition :<| remainingPositions)
  | Seq.length superQueens == size = [board]
- | Seq.length superQueens < size && canPlaceSuperQueen nextPosition board =
+ | Seq.length superQueens < size  =
     let
        newBoard =  Board size (nextPosition <| superQueens)
-    in placeNSuperQueens newBoard remainingPositions ++ placeNSuperQueens board remainingPositions
+       newPositions = prune newBoard remainingPositions
+    in placeNSuperQueens newBoard newPositions ++ placeNSuperQueens board remainingPositions
  | otherwise = placeNSuperQueens board remainingPositions
- 
+
+prune board = Seq.filter (`canPlaceSuperQueen` board)
+
 countSuperQueens side = List.length $ placeNSuperQueens (Board side Seq.empty) $ allPositionsInBoard side
