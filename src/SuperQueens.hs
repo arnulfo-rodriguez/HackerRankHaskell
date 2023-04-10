@@ -33,7 +33,7 @@ superQueenOverlapInL (Position x1 y1) pos2 =
                            Position (x1 - 1) (y1 + 2),
                            Position (x1 + 1) (y1 - 2),
                            Position (x1 + 1) (y1 + 2)]
- in (Maybe.isJust . List.find (== pos2)) possiblePositions
+ in elem pos2 possiblePositions
 
 canPlaceSuperQueen newSuperQueen (Board _ superQueens) =
   let
