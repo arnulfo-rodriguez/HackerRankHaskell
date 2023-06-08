@@ -7,7 +7,8 @@ import Control.Monad.State
 import Data.Array
 import Data.Bits
 import Data.Set
-import Data.Text
+import Data.Text as Text
+import Data.Text.IO as TIO
 import Debug.Trace
 import System.Environment
 import System.IO
@@ -37,39 +38,39 @@ prefixTable pattern =
           return (count:recursiveCallResult)
   in runState (prefixTableRec (-1) pattern (List.tail pattern)) 0
 
-allIndicesOf:: [Char] -> [Char] -> [Int]
-allIndicesOf pattern theStr =
+nextIndexOf:: [Char] -> Array Int Char -> Maybe Int
+nextIndexOf pattern theStr =
   let
     (pTable, patLength) = prefixTable pattern
     thePrefixTable = Array.listArray (0, (patLength - 1)) $ pTable
     patternSeq = Array.listArray (0, (patLength - 1)) pattern
-    allIndicesOfRec startIdx patIdx []
-      | patIdx == patLength = [startIdx]
-      | otherwise = []
-    allIndicesOfRec startIdx patIdx str@(hStr:restStr)
-      | patIdx == patLength = startIdx:allIndicesOfRec (startIdx + patLength) 0 str
-      | (patternSeq ! patIdx) == hStr = allIndicesOfRec startIdx (patIdx + 1) restStr
-      | (patIdx > 0) && (thePrefixTable ! patIdx) >= 0 = allIndicesOfRec (startIdx + (patIdx - (thePrefixTable ! patIdx))) (thePrefixTable ! patIdx) str
-      | patIdx > 0 = allIndicesOfRec (startIdx + 1) 0 str
-      | otherwise = allIndicesOfRec (startIdx + 1) 0 restStr
-  in allIndicesOfRec 0 0 theStr
+    theStrArray = theStr
+    nextIndexOfRec startIdx patIdx
+      | (patIdx + startIdx) == (Array.rangeSize (Array.bounds theStrArray)) && patIdx == patLength = Just startIdx
+      | (patIdx + startIdx) == (Array.rangeSize (Array.bounds theStrArray)) = Nothing
+    nextIndexOfRec startIdx patIdx
+      | patIdx == patLength = Just startIdx
+      | (patternSeq ! patIdx) == (theStrArray ! (startIdx + patIdx)) = nextIndexOfRec startIdx (patIdx + 1)
+      | (thePrefixTable ! patIdx) >= 0 = nextIndexOfRec (startIdx + (patIdx - (thePrefixTable ! patIdx))) (thePrefixTable ! patIdx)
+      | otherwise = nextIndexOfRec (startIdx + 1 ) 0
+  in nextIndexOfRec 0 0
 
 containsPat pat str =
-  let indices = allIndicesOf pat str
-  in if List.null indices then "NO" else "YES"
+  let indices = nextIndexOf pat str
+  in maybe "NO" (\ _ -> "YES") indices
 
 toPairs [] = []
 toPairs (f:s:rest) = (f,s):toPairs rest
 
 main :: IO()
 main = do
-    sizeStr <- getLine
+    sizeStr <- System.IO.getLine
     let size =  read  sizeStr :: Int
     words <- forM [1..(2 * size)] $ \_ ->
       do
-        line <- getLine
-        return line
+        line <- TIO.getLine
+        return line 
     let pairs = toPairs words
     forM_ pairs $ \(word,pattern) ->
       do
-        putStrLn (containsPat pattern word)
+        System.IO.putStrLn $ containsPat (Text.unpack pattern) $ Array.listArray (0 , (Text.length word - 1)) (Text.unpack word)

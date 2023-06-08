@@ -2,41 +2,59 @@ module SubstringSearching
 (containsPat)
 where
 
-import Data.List
-import Data.Maybe as Maybe
+import Control.Monad
 import Control.Monad.State
-import Data.Array as Array
+import Data.Array
+import Data.Bits
+import Data.Set
+import Data.Text as Text
+import Data.Text.IO as TIO
+import Debug.Trace
+import System.Environment
+import System.IO
+import System.IO.Unsafe
+import Data.Map (Map)
+import qualified Data.Map as Map
+import qualified Data.Maybe as Maybe
+import qualified Data.List as List
+import qualified Data.Array as Array
+import Data.Sequence as Seq
 
-data Kpm a = Kpm a [Int] deriving Show
-type SearchState = State Int
-type IndexInStr = Int
-type IndexInPattern = Int
-data NextIndexOfResult = Fail IndexInPattern IndexInStr [Char] | Success IndexInStr [Char]
 
 prefixTable pattern =
   let
-    prefixTableRec count _ [] = [count]
+    prefixTableRec :: Int-> [Char] -> [Char] -> State Int [Int]
+    prefixTableRec count _ [] = do
+        modify (+1)
+        return [count]
     prefixTableRec count (ph:pRest) (sh:sRest)
-      | ph == sh = count:(prefixTableRec (count + 1) pRest sRest)
-      | otherwise = count:(prefixTableRec 0 pattern sRest)
-  in (prefixTableRec 0 pattern (tail pattern))
+      | ph == sh = do
+          modify (+1)
+          recursiveCallResult <- prefixTableRec (count + 1) pRest sRest
+          return (count:recursiveCallResult)
+      | otherwise  = do
+          modify (+ 1)
+          recursiveCallResult <- prefixTableRec (-1) pattern sRest
+          return (count:recursiveCallResult)
+  in runState (prefixTableRec (-1) pattern (List.tail pattern)) 0
 
-allIndicesOf:: [Char] -> [Char] -> [Int]
-allIndicesOf pattern theStr =
+nextIndexOf:: [Char] -> Array Int Char -> Maybe Int
+nextIndexOf pattern theStr =
   let
-    patLength = Data.List.length pattern
-    thePrefixTable = Array.listArray (0, (patLength - 1)) $ prefixTable pattern
+    (pTable, patLength) = prefixTable pattern
+    thePrefixTable = Array.listArray (0, (patLength - 1)) $ pTable
     patternSeq = Array.listArray (0, (patLength - 1)) pattern
-    allIndicesOfRec startIdx patIdx []
-      | patIdx == patLength = [startIdx]
-      | otherwise = [] 
-    allIndicesOfRec startIdx patIdx str@(hStr:restStr)
-      | patIdx >= patLength = startIdx:allIndicesOfRec (startIdx + patLength) 0 str
-      | (patternSeq ! patIdx) == hStr = allIndicesOfRec startIdx (patIdx + 1) restStr
-      | patIdx > 0 = allIndicesOfRec (startIdx + (patIdx - (thePrefixTable ! patIdx))) (thePrefixTable ! patIdx) str
-      | otherwise = allIndicesOfRec (startIdx + 1) 0 restStr
-  in allIndicesOfRec 0 0 theStr
+    theStrArray = theStr
+    nextIndexOfRec startIdx patIdx
+      | (patIdx + startIdx) == (Array.rangeSize (Array.bounds theStrArray)) && patIdx == patLength = Just startIdx
+      | (patIdx + startIdx) == (Array.rangeSize (Array.bounds theStrArray)) = Nothing
+    nextIndexOfRec startIdx patIdx
+      | patIdx == patLength = Just startIdx
+      | (patternSeq ! patIdx) == (theStrArray ! (startIdx + patIdx)) = nextIndexOfRec startIdx (patIdx + 1)
+      | (thePrefixTable ! patIdx) >= 0 = nextIndexOfRec (startIdx + (patIdx - (thePrefixTable ! patIdx))) (thePrefixTable ! patIdx)
+      | otherwise = nextIndexOfRec (startIdx + 1 ) 0
+  in nextIndexOfRec 0 0
 
 containsPat pat str =
-  let indices = allIndicesOf pat str
-  in if Data.List.null indices then "FALSE" else "TRUE"
+  let indices = nextIndexOf pat str
+  in maybe "NO" (\ _ -> "YES") indices
