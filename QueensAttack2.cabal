@@ -44,6 +44,7 @@ library
       SwapNodes
       PasswordCracker
       SuperQueens
+      RangeMinimumQuery
   other-modules:
       Paths_QueensAttack2
   hs-source-dirs:
