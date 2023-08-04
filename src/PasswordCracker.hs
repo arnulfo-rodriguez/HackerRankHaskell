@@ -4,11 +4,13 @@ import qualified Data.Map as Map
 import qualified Data.Maybe as Maybe
 import qualified Data.List as List
 import Data.Map (Map)
+import Control.Applicative
 
 type ChildNodes = Map Char PasswordsTrie
 type IsWordEnd = Bool
 data PasswordsTrie = RootNode ChildNodes | Node Char IsWordEnd ChildNodes deriving Show
 
+  
 addWord :: [Char] -> PasswordsTrie -> PasswordsTrie
 addWord [lst] (RootNode nodes)  =
   case Map.lookup lst nodes of
@@ -46,11 +48,11 @@ isInLanguage theWord passwords =
 
     isInLanguageRec (first:rest) currentWord (RootNode nodes) = case Map.lookup first nodes of
                                                     Nothing -> Nothing
-                                                    Just (Node _ True _) -> ((currentWord ++ [first]):) <$> isInLanguageRec rest "" passwords
+                                                    Just node@(Node _ True _) -> (((currentWord ++ [first]):) <$> isInLanguageRec rest "" passwords) <|> isInLanguageRec rest (currentWord ++ [first]) node
                                                     Just node -> isInLanguageRec rest (currentWord ++ [first]) node
     isInLanguageRec (first:rest) currentWord (Node _ _ nodes) = case Map.lookup first nodes of
                                                     Nothing -> Nothing
-                                                    Just (Node _ True _) -> ((currentWord ++ [first]):) <$> isInLanguageRec rest "" passwords
+                                                    Just node@(Node _ True _) -> (((currentWord ++ [first]):) <$> isInLanguageRec rest "" passwords) <|> isInLanguageRec rest (currentWord ++ [first]) node 
                                                     Just node -> isInLanguageRec rest (currentWord ++ [first]) node
 
 crackPasswords:: [Char] -> [[Char]] -> [Char]

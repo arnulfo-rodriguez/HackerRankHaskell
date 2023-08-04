@@ -70,27 +70,22 @@ getFundamentalMatrix m = inverseGaussJordan ((buildIdentityMatrix m) `subtractMa
 fromStartToExit:: ProbabilityGraph -> Double
 fromStartToExit EmptyGraph = 0
 fromStartToExit p = let     
-                                     (countAbsorvingStates, sortedNodes) = partitionNodes p
-                                     matrixSide = [0..Seq.length sortedNodes -1]
-                                     standardFormMatrix = Seq.fromList $ Data.List.map (\ i -> Seq.fromList (Data.List.map (\ j -> getProbabilityOfTransition (sortedNodes `Seq.index` i) (sortedNodes `Seq.index` j)) matrixSide))  matrixSide
-                                     nonAbsorvingRows = Seq.drop countAbsorvingStates standardFormMatrix
-                                     startingNode = getStartingPositionNode p
-                                     startingNodeIndex = indexOf startingNode sortedNodes
-                                     r =  Matrix $ Seq.mapWithIndex (\ _ row -> Seq.take countAbsorvingStates row) nonAbsorvingRows
-                                     q =  Matrix $ Seq.mapWithIndex (\ _ row -> Seq.drop countAbsorvingStates row) nonAbsorvingRows
-                                     fundamentalMatrix = getFundamentalMatrix q
-                                     fr = case fundamentalMatrix of
-                                            Just m -> Just $ m `multiply` r
-                                            Nothing -> Nothing
-                             in  case fr of
-                                    Just matrix ->    fromRational $
-                                                      Data.Foldable.sum $
-                                                      Seq.mapWithIndex (\ _ (_,p) -> p) $
-                                                      Seq.filter (\case {(Node Exit _ _ _,_) -> True; _ -> False})  $
-                                                      Seq.zip (Seq.take countAbsorvingStates sortedNodes)
-                                                              (Seq.take countAbsorvingStates (getRow (startingNodeIndex - countAbsorvingStates) matrix))
-                                    Nothing -> 0
-
+                           (countAbsorvingStates, sortedNodes) = partitionNodes p
+                           matrixSide = [0..Seq.length sortedNodes -1]
+                           standardFormMatrix = Seq.fromList $ Data.List.map (\ i -> Seq.fromList (Data.List.map (\ j -> getProbabilityOfTransition (sortedNodes `Seq.index` i) (sortedNodes `Seq.index` j)) matrixSide))  matrixSide
+                           nonAbsorvingRows = Seq.drop countAbsorvingStates standardFormMatrix
+                           startingNode = getStartingPositionNode p
+                           startingNodeIndex = indexOf startingNode sortedNodes
+                           r =  Matrix $ Seq.mapWithIndex (\ _ row -> Seq.take countAbsorvingStates row) nonAbsorvingRows
+                           q =  Matrix $ Seq.mapWithIndex (\ _ row -> Seq.drop countAbsorvingStates row) nonAbsorvingRows
+                           fr =  (\m -> m `multiply` r) <$> (getFundamentalMatrix q)
+                    in  maybe 0
+                            (\ matrix ->    fromRational $
+                                              Data.Foldable.sum $
+                                              Seq.mapWithIndex (\ _ (_,p) -> p) $
+                                              Seq.filter (\case {(Node Exit _ _ _,_) -> True; _ -> False})  $
+                                              Seq.zip (Seq.take countAbsorvingStates sortedNodes)
+                                                      (Seq.take countAbsorvingStates (getRow (startingNodeIndex - countAbsorvingStates) matrix))) fr
 
 -- HsFunTy
 getNeighbors (Node _ _ _ n) = n
