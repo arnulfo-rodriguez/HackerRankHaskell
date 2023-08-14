@@ -104,9 +104,7 @@ addTunnel (Maze initial cells) i1 j1 i2 j2 =
 -- HsFunTy
 addRow :: MazeBuilder -> [Cell] -> MazeBuilder
 addRow (MazeBuilder startingPos@(Just _) oldCells) newCells = MazeBuilder startingPos (oldCells |> Seq.fromList newCells)
-addRow (MazeBuilder Nothing oldCells) newCells = case Data.List.elemIndex Initial newCells of
-                                                    Nothing -> MazeBuilder Nothing (oldCells |> Seq.fromList newCells)
-                                                    Just idx -> MazeBuilder (Just (Position (Seq.length oldCells) idx)) (oldCells |> Seq.fromList newCells)
+addRow (MazeBuilder Nothing oldCells) newCells =  MazeBuilder ((\ idx -> (Position (Seq.length oldCells) idx)) <$> (Data.List.elemIndex Initial newCells)) (oldCells |> Seq.fromList newCells)                                                  
 -- HsFunTy
 toMaze (MazeBuilder (Just position) cells) = Maze position cells
 -- HsFunTy
