@@ -2,7 +2,7 @@
 
 module Main where
 
-import RangeMinimumQuery
+import ValidBST
 
 main :: IO()
-main = RangeMinimumQuery.theMain
+main = ValidBST.isValidBSTMain

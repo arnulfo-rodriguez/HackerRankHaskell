@@ -45,6 +45,7 @@ library
       PasswordCracker
       SuperQueens
       RangeMinimumQuery
+      ValidBST
   other-modules:
       Paths_QueensAttack2
   hs-source-dirs:
