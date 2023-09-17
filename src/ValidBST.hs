@@ -2,34 +2,50 @@
 
 module ValidBST(isValidBSTMain) where
 
-iimport Control.Monad.State
+ import Control.Monad.State
  import Data.Maybe as Maybe
  import System.IO
  import Data.List
  import Data.Char (isSpace)
  import Text.Printf (printf)
 
- myTraverse :: [Int] ->  Maybe [Int]
- myTraverse (first:second:rest)
-  | second < first = traverseLeft second rest >>= traverseRight first
-  | second > first = traverseRight first (second:rest)
- myTraverse _ = Just []
+ type Min = Maybe Int
+ type Max = Maybe Int
+ type Parent = Int
 
- traverseLeft :: Int -> [Int] -> Maybe [Int]
+ data TraverseData = TraverseData {
+   parent :: Int,
+   min ::  Maybe Int,
+   max :: Maybe Int
+   } deriving (Show,Eq)
+
+ updateMin (TraverseData p _ max) newMin = TraverseData p newMin max
+ updateMax (TraverseData p min _) = TraverseData p min
+ updateParent (TraverseData _ min max) newParent = TraverseData newParent min max
+
+ canBeLeftChild (TraverseData parent (Just min) _) potentialLeftChild = potentialLeftChild < parent && potentialLeftChild > min
+ canBeLeftChild (TraverseData parent Nothing _) potentialLeftChild = potentialLeftChild < parent
+
+ canBeRightChild  (TraverseData parent _ (Just max)) potentialRightChild = potentialRightChild > parent && potentialRightChild < max
+ canBeRightChild  (TraverseData parent _ Nothing) potentialRightChild = potentialRightChild > parent
+
+
+ myTraverse :: [Int] ->  Maybe [Int]
+ myTraverse (first:rest) = traverseLeft (TraverseData first Nothing Nothing) rest >>= traverseRight (TraverseData first Nothing Nothing)
+
+ traverseLeft :: TraverseData -> [Int] -> Maybe [Int]
  traverseLeft _ [] = Just []
- traverseLeft parent [last] = if last < parent then Just [] else Just [last]
- traverseLeft  parent remainingNodes@(first:second:rest)
-   | first < parent = traverseLeft second rest >>= traverseRight first
-   | second > first && second < parent = traverseRight first (second:rest)
+ traverseLeft  traverseData remainingNodes@(first:rest)
+   | canBeLeftChild traverseData first = traverseLeft (updateParent (updateMax traverseData (Just first)) first)  rest >>= traverseRight (updateParent (updateMin traverseData (Just first)) first)
+   | canBeRightChild traverseData first = traverseRight (updateParent (updateMin traverseData (Just first)) first) rest
    | otherwise = Just remainingNodes
 
- traverseRight :: Int -> [Int] -> Maybe [Int]
+ traverseRight :: TraverseData -> [Int] -> Maybe [Int]
  traverseRight  _ [] = Just []
- traverseRight parent [last] = if last > parent then Just [] else Nothing
- traverseRight parent (first:second:rest)
-   | first < parent || second < parent = Nothing
-   | second < first = traverseLeft first (second:rest) >>= traverseRight first
-   | second > first && second > parent = traverseRight first (second:rest)
+ traverseRight traverseData (first:rest)
+   | canBeRightChild traverseData first = traverseRight (updateParent (updateMin traverseData (Just first)) first) rest
+   | canBeLeftChild traverseData first = traverseLeft (updateParent (updateMax traverseData (Just first)) first)  rest
+   | otherwise = Nothing
 
  isValidBST :: [Int] -> [Char]
  isValidBST nodes = if myTraverse nodes == Just [] then "YES" else "NO"
