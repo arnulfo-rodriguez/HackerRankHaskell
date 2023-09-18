@@ -19,9 +19,13 @@ module ValidBST(isValidBSTMain) where
    max :: Maybe Int
    } deriving (Show,Eq)
 
- updateMin (TraverseData p _ max) newMin = TraverseData p newMin max
- updateMax (TraverseData p min _) = TraverseData p min
- updateParent (TraverseData _ min max) newParent = TraverseData newParent min max
+ updateMin (TraverseData p _ max) = TraverseData p (Just p) max
+ updateMax (TraverseData p min _) = TraverseData p min (Just p)
+ updateParent  newParent (TraverseData _ min max) = TraverseData newParent min max
+
+ updateOnTraverseLeft traverseData newParent =  updateParent newParent $ updateMax traverseData
+ updateOnTraverseRight traverseData newParent = updateParent newParent $ updateMin traverseData
+
 
  canBeLeftChild (TraverseData parent (Just min) _) potentialLeftChild = potentialLeftChild < parent && potentialLeftChild > min
  canBeLeftChild (TraverseData parent Nothing _) potentialLeftChild = potentialLeftChild < parent
@@ -29,29 +33,40 @@ module ValidBST(isValidBSTMain) where
  canBeRightChild  (TraverseData parent _ (Just max)) potentialRightChild = potentialRightChild > parent && potentialRightChild < max
  canBeRightChild  (TraverseData parent _ Nothing) potentialRightChild = potentialRightChild > parent
 
+ isInvalidState (TraverseData _ Nothing _) _ = False
+ isInvalidState (TraverseData parent (Just min) _) potentialChild = potentialChild < parent && potentialChild > min
 
  myTraverse :: [Int] ->  Maybe [Int]
- myTraverse (first:rest) = traverseLeft (TraverseData first Nothing Nothing) rest >>= traverseRight (TraverseData first Nothing Nothing)
+ myTraverse [] = Just []
+ myTraverse [_] = Just []
+ myTraverse (first:second:rest) =
+   let
+    rootData = TraverseData first Nothing Nothing
+    traverseLeftFirst = (second < first)
+    remainingNodes = if traverseLeftFirst then traverseRec (updateOnTraverseLeft rootData second) rest
+                                          else traverseRec (updateOnTraverseRight rootData second) rest
+   in
+    case remainingNodes of
+      Just (remainingFirst:otherRest) | traverseLeftFirst && canBeRightChild rootData remainingFirst -> traverseRec (updateOnTraverseRight rootData remainingFirst) otherRest
+      _ -> remainingNodes
 
- traverseLeft :: TraverseData -> [Int] -> Maybe [Int]
- traverseLeft _ [] = Just []
- traverseLeft  traverseData remainingNodes@(first:rest)
-   | canBeLeftChild traverseData first = traverseLeft (updateParent (updateMax traverseData (Just first)) first)  rest >>= traverseRight (updateParent (updateMin traverseData (Just first)) first)
-   | canBeRightChild traverseData first = traverseRight (updateParent (updateMin traverseData (Just first)) first) rest
+ traverseRightIfPossible _ [] = Just []
+ traverseRightIfPossible traverseData remainingNodes@(first:_)
+  | canBeRightChild traverseData first = traverseRec traverseData remainingNodes
+  | otherwise = Just remainingNodes
+
+ traverseRec :: TraverseData -> [Int] -> Maybe [Int]
+ traverseRec _ [] = Just []
+ traverseRec  traverseData remainingNodes@(first:rest)
+   | canBeLeftChild traverseData first = traverseRec (updateOnTraverseLeft traverseData first)  rest >>= traverseRightIfPossible traverseData
+   | canBeRightChild traverseData first = traverseRec (updateOnTraverseRight traverseData first) rest
    | otherwise = Just remainingNodes
-
- traverseRight :: TraverseData -> [Int] -> Maybe [Int]
- traverseRight  _ [] = Just []
- traverseRight traverseData (first:rest)
-   | canBeRightChild traverseData first = traverseRight (updateParent (updateMin traverseData (Just first)) first) rest
-   | canBeLeftChild traverseData first = traverseLeft (updateParent (updateMax traverseData (Just first)) first)  rest
-   | otherwise = Nothing
 
  isValidBST :: [Int] -> [Char]
  isValidBST nodes = if myTraverse nodes == Just [] then "YES" else "NO"
 
  readIntegers :: [Char] -> [Int]
- readIntegers chars = Data.List.map (\x -> read [x] ::Int) $ Data.List.filter (not . isSpace) chars
+ readIntegers chars = Data.List.map (\x -> read x ::Int) $ Data.List.words chars
 
  isValidBSTMain :: IO()
  isValidBSTMain = do
@@ -61,7 +76,7 @@ module ValidBST(isValidBSTMain) where
      _ <- System.IO.getLine
      chars <- System.IO.getLine
      let arrayToEvaluate = readIntegers chars
-     printf "%s\n" $ isValidBST arrayToEvaluate
+     printf "%s\n" (isValidBST arrayToEvaluate)
 
 
 
