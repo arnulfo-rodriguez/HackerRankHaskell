@@ -46,6 +46,7 @@ library
       SuperQueens
       RangeMinimumQuery
       ValidBST
+      Crosswords101
   other-modules:
       Paths_QueensAttack2
   hs-source-dirs:
