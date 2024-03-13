@@ -2,7 +2,7 @@
 
 module Main where
 
-import ValidBST
+import Crosswords101
 
 main :: IO()
-main = ValidBST.isValidBSTMain
+main = Crosswords101.solveCrosswordsMain

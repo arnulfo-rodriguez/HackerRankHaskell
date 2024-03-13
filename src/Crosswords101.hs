@@ -4,18 +4,20 @@
 {-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE DefaultSignatures #-}
 
-module Crosswords101 where
+module Crosswords101 (solveCrosswordsMain) where
 
 import Data.Map as Map
 import Data.List as List
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe, mapMaybe, fromJust)
 import Control.Applicative
 import Data.Sequence as Seq
+import Data.Foldable as Foldable
+import Text.Printf (printf, PrintfArg)
 
 data Point = Point {
   x :: Int,
   y :: Int
-} deriving (Show,Ord)
+} deriving (Show)
 
 type SparseGrid = Map Point [Vector]
 data Vector = HorizontalVector {row :: Int, startCol :: Int, endCol :: Int} | VerticalVector {col :: Int, startRow :: Int, endRow :: Int } | SinglePoint {point :: Point} deriving (Show)
@@ -28,16 +30,17 @@ data CrosswordState = CrosswordState { pendingWords :: [[Char]], emptyWordSpaces
 vectorLength (HorizontalVector _ start end) = end - start + 1
 vectorLength (VerticalVector _ start end) = end - start + 1
 
-toFilledCell point@(Point x y) emptyWordSpace filledWordSpace = case wordSpace filledWordSpace of
-                                        vv@VerticalVector {} ->  FilledCell (word filledWordSpace !! (x - startRow vv)) (y - startCol emptyWordSpace)
-                                        hv@HorizontalVector {} -> FilledCell (word filledWordSpace !! (y - startCol hv)) (x - (startRow emptyWordSpace))
+toFilledCell :: Point -> EmptyWordSpace -> FilledWordSpace -> FilledCell
+toFilledCell point@(Point x y) emptyWordSpace@HorizontalVector{} (FilledWordSpace vv@VerticalVector{} word) = FilledCell (word  !! (x - startRow vv)) (y - startCol emptyWordSpace)
+toFilledCell point@(Point x y) emptyWordSpace@VerticalVector{} (FilledWordSpace hv@HorizontalVector{} word) = FilledCell (word !! (y - startCol hv)) (x - startRow emptyWordSpace)
+
 isSolved :: CrosswordState -> Bool
 isSolved crosswordState = List.null $ emptyWordSpaces crosswordState
 
 vectorIntersection :: EmptyWordSpace -> FilledWordSpace -> Maybe FilledCell
 vectorIntersection v1 v2 = case (v1, wordSpace v2) of
   (HorizontalVector row startCol endCol , VerticalVector col startRow endRow) | row >= startRow && row <= endRow && col >= startCol && col <= endCol -> Just $ toFilledCell (Point row col) v1 v2
-  (VerticalVector col startCol endCol , HorizontalVector row startRow endRow) | row >= startRow && row <= endRow && col >= startCol && col <= endCol -> Just $ toFilledCell (Point row col) v1 v2
+  (VerticalVector col startRow endRow , HorizontalVector row startCol endCol) | row >= startRow && row <= endRow && col >= startCol && col <= endCol -> Just $ toFilledCell (Point row col) v1 v2
   _ -> Nothing
 
 findFilledCells :: EmptyWordSpace -> [FilledWordSpace] -> [FilledCell]
@@ -47,49 +50,42 @@ getConstraintsForEmptyWordSpace emptyWordSpace filledWordSpaces = Constraints (v
 wordMatchesConstraint constraints w = List.length w == constraintLength constraints && all (\ fc -> w !! filledCellPosition fc == filledCellLetter fc ) (constraintFilledCells constraints)
 
 trySolveCrosswords :: EmptyWordSpace -> [[Char]] -> [[Char]] -> [EmptyWordSpace] -> [FilledWordSpace] -> Maybe CrosswordState
-trySolveCrosswords crosswordState [] _ _ _ = Nothing
 trySolveCrosswords currentEmptyWordSpace (potentialMatchingWord:potentialMatchingWords) remainingWords emptyWordSpaces filledWordSpaces =
   solveCrosswords (CrosswordState (potentialMatchingWords ++ remainingWords) emptyWordSpaces (FilledWordSpace currentEmptyWordSpace potentialMatchingWord:filledWordSpaces)) <|>
   trySolveCrosswords currentEmptyWordSpace potentialMatchingWords (potentialMatchingWord:remainingWords) emptyWordSpaces filledWordSpaces
+trySolveCrosswords crosswordState [] _ _ _ = Nothing
 
-getRowEmptyPositions :: Int -> [Char] -> [Vector]
-getRowEmptyPositions row values = List.map (\(_,index) -> SinglePoint (Point row index)) $ List.filter (\ (letter,_) -> letter == '-') $ List.zip values [0..]
+growTupleOrStartNew :: Int -> [(Int, Int, Int)] -> (Char, Int) -> [(Int, Int, Int)]
+growTupleOrStartNew row ((_,initialCol,endCol):rest) (cr,currentCol) | cr == '-' && endCol + 1 == currentCol = (row,initialCol,currentCol):rest
+growTupleOrStartNew row l (cr,col) | cr == '-' = (row,col,col):l
+growTupleOrStartNew row l _ = l
 
-getEmptyPositions :: [[Char]] -> [Point]
-getEmptyPositions textPuzzle = List.zip [0..] textPuzzle >>= uncurry getRowEmptyPositions
+getRowEmptyPositions :: Int -> [Char] -> [(Int,Int,Int)]
+getRowEmptyPositions row values = List.foldl (growTupleOrStartNew row)  []  $ List.zip values [0..]
 
-isRightOf _ _ = False
-isRightOf (SinglePoint (Point x1 y1)) (SinglePoint (Point x2 y2)) | x1 == x2 && y2 + 1 == y1 = True
-isRightOf (SinglePoint (Point x1 y1)) (VerticalVector col startRow endRow) | y1 == col + 1 && (x1 >= startRow || x1 <= endRow) = True
-isRightOf (SinglePoint (Point x1 y1)) (HorizontalVector row startCol endCol) | x1 == row && endCol + 1 == y1 = True
+getEmptyRowPositions :: [[Char]] -> [(Int,Int,Int)]
+getEmptyRowPositions textPuzzle = List.zip [0..] textPuzzle >>= uncurry getRowEmptyPositions
 
-mergeRight (SinglePoint (Point x1 y1)) (SinglePoint (Point x2 y2)) | x1 == x2 && y2 + 1 == y1 = [HorizontalVector x1 y1 y2]
-mergeRight (SinglePoint (Point x1 y1)) (HorizontalVector row startCol endCol) | x1 == row && endCol + 1 == y1 = (HorizontalVector row startCol y1)
-mergeRight (SinglePoint (Point x1 y1)) vert@(VerticalVector col startRow endRow) | y1 == col + 1 && (x1 >= startRow || x1 <= endRow) = [vert,HorizontalVector x1 y2 y1]
+getHorizontalVectors :: [[Char]] -> [Vector]
+getHorizontalVectors values =  List.map (\ (row,startCol,endCol) -> HorizontalVector row startCol endCol) $ List.filter (\ (_,x,y) -> y > x) $ getEmptyRowPositions values
 
+-- Implement `getVerticalVectors` to traverse the grid vertically
+getVerticalVectors :: [[Char]] -> [Vector]
+getVerticalVectors values =
+    List.map (\ (col, startRow, endRow) -> VerticalVector col startRow endRow) $ List.filter (\ (_,x,y) -> y > x) $ getEmptyRowPositions $ transposeGrid values
 
-isBelowOf _ _ = False
-isBelowOf (SinglePoint (Point x1 y1)) (SinglePoint (Point x2 y2)) | y1 == y2 && x2 + 1 == x1 = True
-isBelowOf (SinglePoint (Point x1 y1)) (VerticalVector col startRow endRow) | col == y1 && endRow + 1 == x1 = True
-isBelowOf (SinglePoint (Point x1 y1)) (HorizontalVector row startCol endCol) | row + 1 == x1 && y1 >= startCol && y1 <= endCol = True
+-- Implement `transposeGrid` to transpose the grid
+transposeGrid :: [[Char]] -> [[Char]]
+transposeGrid = List.transpose
 
-mergeBelow (SinglePoint (Point x1 y1)) (SinglePoint (Point x2 y2)) | y1 == y2 && x2 + 1 == x1 = [VerticalVector y1 x2 x1]
-mergeBelow (SinglePoint (Point x1 y1)) (VerticalVector col startRow endRow) | col == y1 && endRow + 1 == x1 = [VerticalVector ]
-mergeBelow (SinglePoint (Point x1 y1)) (HorizontalVector row startCol endCol) | row + 1 == x1 && y1 >= startCol && y1 <= endCol = True
-
-
-
-mergeCurrent singlePoint@(SinglePoint _ ) [] = singlePoint
-mergeCurrent singlePoint@(SinglePoint _ ) (head:rest) | isRightOf singlePoint head = mergeRight singlePoint head
-
-mergeLeftToRightTopToBottom :: [Vector] -> [Vector]
-mergeLeftToRightTopToBottom (current:rest) merged
-
-buildEmptyWordSpaces :: [[Char]] -> [EmptyWordSpace]
-buildEmptyWordSpaces textPuzzle =
+buildEmptyCrosswordState:: [[Char]] -> [[Char]] -> CrosswordState
+buildEmptyCrosswordState pendingWords values =
   let
-    emptyPositions = getRowEmptyPositions textPuzzle
-
+    horizontalVectors = getHorizontalVectors values
+    verticalVectors = getVerticalVectors values
+    allVectors = horizontalVectors ++ verticalVectors
+    startingState = CrosswordState pendingWords allVectors []
+  in startingState
 
 solveCrosswords:: CrosswordState -> Maybe CrosswordState
 solveCrosswords crosswordState | isSolved crosswordState = Just crosswordState
@@ -98,3 +94,24 @@ solveCrosswords (CrosswordState pendingWords (currentEmptyWordSpace:emptyWordSpa
     constraints = getConstraintsForEmptyWordSpace currentEmptyWordSpace filledWordSpaces
     (potentialMatchingWords,remainingWords) = List.partition (wordMatchesConstraint constraints) pendingWords
   in trySolveCrosswords currentEmptyWordSpace potentialMatchingWords remainingWords emptyWordSpaces filledWordSpaces
+
+
+
+splitOn :: [Char] -> Char -> [[Char]]
+splitOn str separator =
+  List.foldl
+    (\ acc current ->
+                     case acc of
+                       [] | current == separator -> []
+                       [] -> [[current]]
+                       l@(_:_) | current == separator -> "":l
+                       (head:tail) -> (current:head):tail
+    )  [] (List.reverse str)
+
+solveCrosswordsMain :: IO()
+solveCrosswordsMain = do
+  lines <- replicateM 10 getLine
+  wordsStr <- getLine
+  let words = splitOn wordsStr ';'
+  let result = solveCrosswords $ buildEmptyCrosswordState words $ Foldable.toList lines
+  printf "%s\n" (show (fromJust result))
