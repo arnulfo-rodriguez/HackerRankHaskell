@@ -47,6 +47,7 @@ library
       RangeMinimumQuery
       ValidBST
       Crosswords101
+      OrderExercises
   other-modules:
       Paths_QueensAttack2
   hs-source-dirs:
