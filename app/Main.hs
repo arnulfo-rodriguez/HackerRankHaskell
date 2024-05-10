@@ -2,7 +2,7 @@
 
 module Main where
 
-import Crosswords101
+import OrderExercises
 
 main :: IO()
-main = Crosswords101.solveCrosswordsMain
+main = OrderExercises.orderExercisesMain
