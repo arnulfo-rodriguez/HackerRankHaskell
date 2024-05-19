@@ -1,6 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE ExistentialQuantification #-}
-
 module OrderExercises (orderExercisesMain) where
 
 import qualified Data.List as List
@@ -56,8 +53,8 @@ mergeDescending (x:xs) (y:ys)
 orderExercisesMain :: IO()
 orderExercisesMain = do
   firstLineStr <- System.IO.getLine
-  let [size, total] = map read (words firstLineStr) 
+  let [_ , t] = map read (words firstLineStr)
   secondLineStr <- System.IO.getLine
   let theList = Seq.fromList $ List.map (\x -> read x ::Int) $ words secondLineStr
-  let result = List.take total $ orderExercises theList
+  let result = List.take t $ orderExercises theList
   mapM_ print result
