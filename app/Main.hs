@@ -2,7 +2,7 @@
 
 module Main where
 
-import OrderExercises
+import SimplifyAlgebraicExpressions
 
 main :: IO()
-main = OrderExercises.orderExercisesMain
+main = SimplifyAlgebraicExpressions.simplifyMain

@@ -48,6 +48,7 @@ library
       ValidBST
       Crosswords101
       OrderExercises
+      SimplifyAlgebraicExpressions
   other-modules:
       Paths_QueensAttack2
   hs-source-dirs:
