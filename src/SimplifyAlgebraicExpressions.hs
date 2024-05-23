@@ -1,8 +1,9 @@
 module SimplifyAlgebraicExpressions(simplifyMain) where
 
 import Control.Applicative (Alternative(..), liftA2)
-import Data.Char (isDigit, isSpace)
+import Data.Char (isDigit, isSpace, isLower)
 import System.IO
+import Data.Maybe (fromMaybe)
 
 newtype Parser a = Parser { runParser :: String -> Maybe (a, String) }
 
@@ -39,11 +40,14 @@ satisfy predicate = Parser $ \input ->
 char :: Char -> Parser Char
 char c = satisfy (== c)
 
+symbol :: Parser String
+symbol = (:[]) <$> (satisfy (\ s -> isLower s && s >= 'a' && s <= 'z'))
+
 spaces :: Parser String
 spaces = many (satisfy isSpace)
 
 -- Expression parser
-data Expr = Add Expr Expr | Mul Expr Expr | Val Int
+data Expr = Add Expr Expr | Mul Expr Expr | Val Int | Variable String
   deriving (Show)
 
 integer :: Parser Int
@@ -52,6 +56,9 @@ integer = read <$> some (satisfy isDigit)
 value :: Parser Expr
 value = Val <$> integer <|> parens expr
 
+variable :: Parser Expr
+variable = Variable <$> symbol
+
 parens :: Parser a -> Parser a
 parens p = char '(' *> spaces *> p <* spaces <* char ')'
 
@@ -59,7 +66,9 @@ expr :: Parser Expr
 expr = add
 
 mul :: Parser Expr
-mul = chainl1 value (Mul <$ (spaces *> char '*' *> spaces))
+mul = chainl1 term (Mul <$ (spaces *> char '*' <* spaces) <|> pure Mul)
+  where
+    term = value <|> variable <|> parens expr
 
 add :: Parser Expr
 add = chainl1 mul (Add <$ (spaces *> char '+' *> spaces))
