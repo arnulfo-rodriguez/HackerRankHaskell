@@ -129,12 +129,13 @@ simplifyHelper :: Expr -> State MemoizationMap Expr
 simplifyHelper v@(Val _) = return v
 simplifyHelper v@(Variable _) = return v
 simplifyHelper m@(Monomial _ _ _) = return m
-simplifyHelper (Mul (Variable x) (Variable y))  | x == y =  return (Power (Variable x) (Val 2))
-simplifyHelper (Mul (Variable x) (Power (Variable y) (Val v)))   | x == y = return (Power (Variable y) (Val (v + 1)))
-simplifyHelper (Mul (Power (Variable y) (Val v)) (Variable x))   | x == y =  return ( (Power (Variable y) (Val (v + 1))))
-simplifyHelper (Div (Power (Variable y) (Val v)) (Variable x))   | x == y =  return ( (Power (Variable y) (Val (v - 1))))
-simplifyHelper (Mul (Power (Variable y) (Val v)) (Power (Variable y1) (Val v1))) | y == y1 = return ( (Power (Variable y) (Val (v + v1))))
-simplifyHelper (Div (Power (Variable y) (Val v)) (Power (Variable y1) (Val v1))) | y == y1 = return ( (Power (Variable y) (Val (v - v1))))
+simplifyHelper (Power (Variable y) (Val v)) = return (Monomial 1 y v)
+simplifyHelper (Mul (Variable x) (Variable y))  | x == y =  return (Monomial 1 x 2)
+simplifyHelper (Mul (Variable x) (Monomial c y v))  | x == y = return (Monomial c y (v + 1))
+simplifyHelper (Mul (Monomial c y v) (Variable x))   | x == y =  return (Monomial c y (v + 1))
+simplifyHelper (Div (Monomial c y v) (Variable x))   | x == y =  return (Monomial c y (v - 1))
+simplifyHelper (Mul (Monomial c y v) (Monomial c' y' v')) | y == y' = return (Monomial (c * c')  y (v + v'))
+simplifyHelper (Div (Monomial c y v) (Monomial c' y' v')) | y == y' = return (Monomial (c `div` c')  y (v - v'))
 simplifyHelper (Mul (Variable x) (Val y)) = return (Monomial y x 1)
 simplifyHelper (Mul (Val y) (Variable x)) = return (Monomial y x 1)
 simplifyHelper (Add (Variable x) y@(Val _)) = return (Add (Monomial 1 x 1) y)
@@ -215,6 +216,8 @@ simplifyHelper (Add (Monomial value var exp) (Monomial value1 var1 exp1))   | va
 simplifyHelper (Add (Monomial value var exp) (Variable var1))   | var == var1 = return (Monomial (value + 1) var exp)
 simplifyHelper (Add (Variable var1) (Monomial value var exp))   | var == var1 = return (Monomial (value + 1) var exp)
 simplifyHelper (Div (Monomial value var exp) (Val v)) = return (Monomial (value `div` v) var exp)
+simplifyHelper (Mul (Monomial value var exp) (Val v)) = return (Monomial (value * v) var exp)
+simplifyHelper (Mul (Val v) (Monomial value var exp)) = return (Monomial (value * v) var exp)
 simplifyHelper (Mul (Monomial value var exp) (Monomial value1 var1 exp1)) | var == var1 = return (Monomial (value*value1) var (exp + exp1))
 simplifyHelper (Add (Variable var1) (Variable var))   | var == var1 = return (Monomial 2 var 1)
 simplifyHelper m@(Mul x y) = do
