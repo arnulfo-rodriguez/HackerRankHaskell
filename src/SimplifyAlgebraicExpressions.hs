@@ -54,6 +54,29 @@ spaces = many (satisfy isSpace)
 data Expr = Add Expr Expr | Sub Expr Expr | Mul Expr Expr | Div Expr Expr | Power Expr Expr | Val Int | Variable Char | Monomial Int Char Int
   deriving (Show,Ord,Eq)
 
+data Polynomial = EmptyPolynomial | SingeVariablePolynomial (Map Int Expr)  deriving Show
+
+addToPoly:: Expr -> Polynomial -> Polynomial
+addToPoly  (Val x) EmptyPolynomial = SingeVariablePolynomial $ Map.singleton 0 (Monomial x 'x' 0)
+addToPoly  m@(Monomial _ _ degree)  EmptyPolynomial = SingeVariablePolynomial $ Map.singleton degree m
+addToPoly  m@(Monomial coeff var degree) (SingeVariablePolynomial theMap) =
+  SingeVariablePolynomial $ case Map.lookup coeff theMap of
+                              Nothing -> Map.insert degree m theMap
+                              (Just (Monomial origCoeff _ _)) -> Map.insert degree (Monomial (coeff + origCoeff) var degree) theMap
+addToPoly (Val coeff) (SingeVariablePolynomial theMap) =
+  SingeVariablePolynomial $ case Map.lookup 0 theMap of
+                              Nothing -> Map.insert 0 (Monomial coeff 'x' 0) theMap
+                              (Just (Monomial origCoeff var _)) -> Map.insert 0 (Monomial (coeff + origCoeff) var 0) theMap
+
+
+
+recAddToPoly :: Expr -> Polynomial -> Polynomial
+recAddToPoly v@(Val _) poly = addToPoly v poly
+recAddToPoly m@(Monomial _ _ _) poly = addToPoly m poly
+recAddToPoly (Add left right) poly = recAddToPoly right (recAddToPoly left poly)
+recAddToPoly x _ = error ("Expression: " ++ show x ++ " didn't match any pattern!")
+
+
 integer :: Parser Int
 integer = read <$> some (satisfy isDigit)
 
@@ -124,21 +147,17 @@ iterateUntilConverge expr = do
   if expr == simplified
     then return expr
     else simplify simplified
-    
+
 simplifyHelper :: Expr -> State MemoizationMap Expr
 simplifyHelper v@(Val _) = return v
-simplifyHelper v@(Variable _) = return v
+simplifyHelper (Variable v) = return (Monomial 1 v 1)
 simplifyHelper m@(Monomial _ _ _) = return m
 simplifyHelper (Power (Variable y) (Val v)) = return (Monomial 1 y v)
-simplifyHelper (Mul (Variable x) (Variable y))  | x == y =  return (Monomial 1 x 2)
-simplifyHelper (Mul (Variable x) (Monomial c y v))  | x == y = return (Monomial c y (v + 1))
+simplifyHelper (Sub exp1 exp2) = return (Add exp1 (Mul (Val (-1)) exp2))
 simplifyHelper (Mul (Monomial c y v) (Variable x))   | x == y =  return (Monomial c y (v + 1))
 simplifyHelper (Div (Monomial c y v) (Variable x))   | x == y =  return (Monomial c y (v - 1))
 simplifyHelper (Mul (Monomial c y v) (Monomial c' y' v')) | y == y' = return (Monomial (c * c')  y (v + v'))
 simplifyHelper (Div (Monomial c y v) (Monomial c' y' v')) | y == y' = return (Monomial (c `div` c')  y (v - v'))
-simplifyHelper (Mul (Variable x) (Val y)) = return (Monomial y x 1)
-simplifyHelper (Mul (Val y) (Variable x)) = return (Monomial y x 1)
-simplifyHelper (Add (Variable x) y@(Val _)) = return (Add (Monomial 1 x 1) y)
 simplifyHelper (Add x (Val 0)) = return x
 simplifyHelper (Add (Val 0) x) = return x
 simplifyHelper (Power v (Val 1)) = return v
@@ -148,7 +167,11 @@ simplifyHelper (Mul x (Val 1)) = return x
 simplifyHelper (Add (Val x) (Val y)) = return (Val $ x + y)
 simplifyHelper (Mul (Val x) (Val y)) = return (Val $ x * y)
 simplifyHelper (Div (Val x) (Val y)) = return (Val $ x `div` y)
-simplifyHelper (Sub (Val x) (Val y)) = return (Val $ x - y)
+simplifyHelper (Add (Monomial value var exp) (Monomial value1 var1 exp1))   | var == var1 && exp == exp1 = return (Monomial (value + value1) var exp)
+simplifyHelper (Div (Monomial value var exp) (Val v)) = return (Monomial (value `div` v) var exp)
+simplifyHelper (Mul (Monomial value var exp) (Val v)) = return (Monomial (value * v) var exp)
+simplifyHelper (Mul (Val v) (Monomial value var exp)) = return (Monomial (value * v) var exp)
+simplifyHelper (Mul (Monomial value var exp) (Monomial value1 var1 exp1)) | var == var1 = return (Monomial (value*value1) var (exp + exp1))
 simplifyHelper (Div (Add x y) z) = do
     x' <- simplify x
     y' <- simplify y
@@ -164,23 +187,7 @@ simplifyHelper (Mul (Add x y) z) = do
     left <- simplify (Mul x' z')
     right <- simplify (Mul y' z')
     return (Add left right)
-    
-simplifyHelper (Div (Sub x y) z) = do
-    x' <- simplify x
-    y' <- simplify y
-    z' <- simplify z
-    left <- simplify (Div x' z')
-    right <- simplify (Div y' z')
-    return (Sub left right)
-    
-simplifyHelper (Mul (Sub x y) z) = do
-    x' <- simplify x
-    y' <- simplify y
-    z' <- simplify z
-    left <- simplify (Mul x' z')
-    right <- simplify (Mul y' z')
-    return (Sub left right)
-    
+
 simplifyHelper (Div z (Add x y)) = do
     x' <- simplify x
     y' <- simplify y
@@ -196,30 +203,7 @@ simplifyHelper (Mul z (Add x y)) = do
     left <- simplify (Mul x' z')
     right <- simplify (Mul y' z')
     return (Add left right)
-    
-simplifyHelper (Div z (Sub x y)) = do
-    x' <- simplify x
-    y' <- simplify y
-    z' <- simplify z
-    left <- simplify (Div x' z')
-    right <- simplify (Div y' z')
-    return (Sub left right)
-    
-simplifyHelper (Mul z (Sub x y)) = do
-    x' <- simplify x
-    y' <- simplify y
-    z' <- simplify z
-    left <- simplify (Mul x' z')
-    right <- simplify (Mul y' z')
-    return (Sub left right)
-simplifyHelper (Add (Monomial value var exp) (Monomial value1 var1 exp1))   | var == var1 && exp == exp1 = return (Monomial (value + value1) var exp)
-simplifyHelper (Add (Monomial value var exp) (Variable var1))   | var == var1 = return (Monomial (value + 1) var exp)
-simplifyHelper (Add (Variable var1) (Monomial value var exp))   | var == var1 = return (Monomial (value + 1) var exp)
-simplifyHelper (Div (Monomial value var exp) (Val v)) = return (Monomial (value `div` v) var exp)
-simplifyHelper (Mul (Monomial value var exp) (Val v)) = return (Monomial (value * v) var exp)
-simplifyHelper (Mul (Val v) (Monomial value var exp)) = return (Monomial (value * v) var exp)
-simplifyHelper (Mul (Monomial value var exp) (Monomial value1 var1 exp1)) | var == var1 = return (Monomial (value*value1) var (exp + exp1))
-simplifyHelper (Add (Variable var1) (Variable var))   | var == var1 = return (Monomial 2 var 1)
+
 simplifyHelper m@(Mul x y) = do
     x' <- simplify x
     y' <- simplify y
@@ -228,10 +212,6 @@ simplifyHelper a@(Add x y) = do
     x' <- simplify x
     y' <- simplify y
     return  (Add x' y')
-simplifyHelper s@(Sub x y) = do
-    x' <- simplify x
-    y' <- simplify y
-    return (Sub x' y')
 simplifyHelper d@(Div x y) = do
     x' <- simplify x
     y' <- simplify y
@@ -247,6 +227,7 @@ simplifyHelper p@(Power x y) = do
 simplifyMain :: IO ()
 simplifyMain = do
     input <- getLine
-    case parse input of
-        Just expr -> print $ evalState (simplify expr) Map.empty
-        Nothing -> putStrLn "Invalid expression"
+    let (Just originalExpr) = parse input
+    let expr = evalState (simplify originalExpr) Map.empty
+    let newPoly = recAddToPoly expr EmptyPolynomial
+    print newPoly
