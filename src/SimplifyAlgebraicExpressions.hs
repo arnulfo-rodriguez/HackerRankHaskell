@@ -56,27 +56,6 @@ data Expr = Add Expr Expr | Sub Expr Expr | Mul Expr Expr | Div Expr Expr | Powe
 
 data Polynomial = EmptyPolynomial | SingeVariablePolynomial (Map Int Expr)  deriving Show
 
-addToPoly:: Expr -> Polynomial -> Polynomial
-addToPoly  (Val x) EmptyPolynomial = SingeVariablePolynomial $ Map.singleton 0 (Monomial x 'x' 0)
-addToPoly  m@(Monomial _ _ degree)  EmptyPolynomial = SingeVariablePolynomial $ Map.singleton degree m
-addToPoly  m@(Monomial coeff var degree) (SingeVariablePolynomial theMap) =
-  SingeVariablePolynomial $ case Map.lookup coeff theMap of
-                              Nothing -> Map.insert degree m theMap
-                              (Just (Monomial origCoeff _ _)) -> Map.insert degree (Monomial (coeff + origCoeff) var degree) theMap
-addToPoly (Val coeff) (SingeVariablePolynomial theMap) =
-  SingeVariablePolynomial $ case Map.lookup 0 theMap of
-                              Nothing -> Map.insert 0 (Monomial coeff 'x' 0) theMap
-                              (Just (Monomial origCoeff var _)) -> Map.insert 0 (Monomial (coeff + origCoeff) var 0) theMap
-
-
-
-recAddToPoly :: Expr -> Polynomial -> Polynomial
-recAddToPoly v@(Val _) poly = addToPoly v poly
-recAddToPoly m@(Monomial _ _ _) poly = addToPoly m poly
-recAddToPoly (Add left right) poly = recAddToPoly right (recAddToPoly left poly)
-recAddToPoly x _ = error ("Expression: " ++ show x ++ " didn't match any pattern!")
-
-
 integer :: Parser Int
 integer = read <$> some (satisfy isDigit)
 
@@ -222,6 +201,35 @@ simplifyHelper p@(Power x y) = do
     let result = (Power x' y')
     return result
 
+addToPoly:: Expr -> Polynomial -> Polynomial
+addToPoly  (Val x) EmptyPolynomial = SingeVariablePolynomial $ Map.singleton 0 (Monomial x 'x' 0)
+addToPoly  m@(Monomial _ _ degree)  EmptyPolynomial = SingeVariablePolynomial $ Map.singleton degree m
+addToPoly  m@(Monomial coeff var degree) (SingeVariablePolynomial theMap) =
+  SingeVariablePolynomial $ case Map.lookup coeff theMap of
+                              Nothing -> Map.insert degree m theMap
+                              (Just (Monomial origCoeff _ _)) -> Map.insert degree (Monomial (coeff + origCoeff) var degree) theMap
+addToPoly (Val coeff) (SingeVariablePolynomial theMap) =
+  SingeVariablePolynomial $ case Map.lookup 0 theMap of
+                              Nothing -> Map.insert 0 (Monomial coeff 'x' 0) theMap
+                              (Just (Monomial origCoeff var _)) -> Map.insert 0 (Monomial (coeff + origCoeff) var 0) theMap
+
+
+recAddToPoly :: Expr -> Polynomial -> Polynomial
+recAddToPoly v@(Val _) poly = addToPoly v poly
+recAddToPoly m@(Monomial _ _ _) poly = addToPoly m poly
+recAddToPoly (Add left right) poly = recAddToPoly right (recAddToPoly left poly)
+recAddToPoly x _ = error ("Expression: " ++ show x ++ " didn't match any pattern!")
+
+
+printMono (Monomial coeff var degree)
+ | coeff == 0 = ""
+ | degree == 0 = show coeff
+ | coeff == 1 = show coeff ++ show var
+ | otherwise = show coeff ++ show var ++ "^" ++ show degree
+
+prettyPrint (SingeVariablePolynomial monomials) = Map.foldrWithKey (\_ v acc -> acc ++ " + " ++ (printMono v)) "" monomials
+
+
 -- simplifyHelper x = error ("Expression: " ++ show x ++ " didn't match any pattern!")
 -- Example usage
 simplifyMain :: IO ()
@@ -230,4 +238,5 @@ simplifyMain = do
     let (Just originalExpr) = parse input
     let expr = evalState (simplify originalExpr) Map.empty
     let newPoly = recAddToPoly expr EmptyPolynomial
-    print newPoly
+    let newPolyAsStr = prettyPrint newPoly
+    print newPolyAsStr
