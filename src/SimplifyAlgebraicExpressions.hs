@@ -6,8 +6,10 @@ import System.IO
 import Data.Maybe (fromMaybe)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Control.Monad.State (State, runState, evalState, modify, get)
-
+import Control.Monad.State (State, runState, evalState, modify, get, lift)
+import Control.Monad (when)
+import Data.List (reverse)
+import Text.Printf (printf)
 newtype Parser a = Parser { runParser :: String -> Maybe (a, String) }
 type MemoizationMap = Map Expr Expr
 
@@ -221,13 +223,31 @@ recAddToPoly (Add left right) poly = recAddToPoly right (recAddToPoly left poly)
 recAddToPoly x _ = error ("Expression: " ++ show x ++ " didn't match any pattern!")
 
 
-printMono (Monomial coeff var degree)
- | coeff == 0 = ""
- | degree == 0 = show coeff
- | coeff == 1 = show coeff ++ show var
- | otherwise = show coeff ++ show var ++ "^" ++ show degree
+printMono :: Expr -> IO ()
+printMono (Monomial coeff var degree) =
+  when (coeff /= 0) $ do
+    if (coeff /= 1) || ((coeff == 1) && degree == 0)  then printf "%d" coeff else pure ()
+    when (degree > 0) $ do 
+      printf "%c" var
+      when (degree /= 1) $ printf "^%d" degree
 
-prettyPrint (SingeVariablePolynomial monomials) = Map.foldrWithKey (\_ v acc -> acc ++ " + " ++ (printMono v)) "" monomials
+data First = First | NotFirst deriving (Show, Eq)
+
+prettyPrint :: Polynomial -> IO ()
+prettyPrint (SingeVariablePolynomial (monomials)) = let
+  prettyPrintRec [] = do
+                        (putStr "")
+  prettyPrintRec (f:rest) = do
+    putStr " + "
+    (printMono f)
+    (prettyPrintRec rest)
+  listExprsByAscendingKey = map snd . reverse . Map.toList
+  (first:sortedMonomials) = listExprsByAscendingKey monomials
+  in
+    do
+      (printMono first)
+      (prettyPrintRec sortedMonomials)
+
 
 
 -- simplifyHelper x = error ("Expression: " ++ show x ++ " didn't match any pattern!")
@@ -238,5 +258,4 @@ simplifyMain = do
     let (Just originalExpr) = parse input
     let expr = evalState (simplify originalExpr) Map.empty
     let newPoly = recAddToPoly expr EmptyPolynomial
-    let newPolyAsStr = prettyPrint newPoly
-    print newPolyAsStr
+    prettyPrint newPoly
