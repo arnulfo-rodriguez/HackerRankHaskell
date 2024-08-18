@@ -7,7 +7,7 @@ import Data.Maybe (fromMaybe)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Control.Monad.State (State, runState, evalState, modify, get, lift)
-import Control.Monad (when)
+import Control.Monad (when, forM_)
 import Data.List (reverse)
 import Text.Printf (printf)
 newtype Parser a = Parser { runParser :: String -> Maybe (a, String) }
@@ -207,45 +207,50 @@ addToPoly:: Expr -> Polynomial -> Polynomial
 addToPoly  (Val x) EmptyPolynomial = SingeVariablePolynomial $ Map.singleton 0 (Monomial x 'x' 0)
 addToPoly  m@(Monomial _ _ degree)  EmptyPolynomial = SingeVariablePolynomial $ Map.singleton degree m
 addToPoly  m@(Monomial coeff var degree) (SingeVariablePolynomial theMap) =
-  SingeVariablePolynomial $ case Map.lookup coeff theMap of
+  SingeVariablePolynomial $ case Map.lookup degree theMap of
                               Nothing -> Map.insert degree m theMap
                               (Just (Monomial origCoeff _ _)) -> Map.insert degree (Monomial (coeff + origCoeff) var degree) theMap
 addToPoly (Val coeff) (SingeVariablePolynomial theMap) =
   SingeVariablePolynomial $ case Map.lookup 0 theMap of
                               Nothing -> Map.insert 0 (Monomial coeff 'x' 0) theMap
                               (Just (Monomial origCoeff var _)) -> Map.insert 0 (Monomial (coeff + origCoeff) var 0) theMap
+addToPoly (Add x y) poly = (addToPoly y (addToPoly x poly))
+addToPoly x _ = error ("Expression: " ++ show x ++ " didn't match any pattern!")
 
 
-recAddToPoly :: Expr -> Polynomial -> Polynomial
-recAddToPoly v@(Val _) poly = addToPoly v poly
-recAddToPoly m@(Monomial _ _ _) poly = addToPoly m poly
-recAddToPoly (Add left right) poly = recAddToPoly right (recAddToPoly left poly)
-recAddToPoly x _ = error ("Expression: " ++ show x ++ " didn't match any pattern!")
-
-
-printMono :: Expr -> IO ()
-printMono (Monomial coeff var degree) =
+printMono :: (Int -> IO ()) -> Expr -> IO ()
+printMono prefixPrinter (Monomial coeff var degree) = do
+  prefixPrinter(coeff)
   when (coeff /= 0) $ do
-    if (coeff /= 1) || ((coeff == 1) && degree == 0)  then printf "%d" coeff else pure ()
-    when (degree > 0) $ do 
+    if (abs(coeff) /= 1) || ((abs(coeff) == 1) && degree == 0)  then printf "%d" (abs coeff) else pure ()
+    when (degree > 0) $ do
       printf "%c" var
       when (degree /= 1) $ printf "^%d" degree
 
 data First = First | NotFirst deriving (Show, Eq)
+
+printOperation :: Int -> IO ()
+printOperation coeff = do
+  putStr " "
+  if (coeff > 0)
+  then
+    putStr "+"
+  else
+    putStr "-"
+  putStr " "
 
 prettyPrint :: Polynomial -> IO ()
 prettyPrint (SingeVariablePolynomial (monomials)) = let
   prettyPrintRec [] = do
                         (putStr "")
   prettyPrintRec (f:rest) = do
-    putStr " + "
-    (printMono f)
+    (printMono printOperation f)
     (prettyPrintRec rest)
   listExprsByAscendingKey = map snd . reverse . Map.toList
   (first:sortedMonomials) = listExprsByAscendingKey monomials
   in
     do
-      (printMono first)
+      (printMono (\ coeff -> (putStr (if (coeff >= 0) then "" else "-")))  first)
       (prettyPrintRec sortedMonomials)
 
 
@@ -254,8 +259,15 @@ prettyPrint (SingeVariablePolynomial (monomials)) = let
 -- Example usage
 simplifyMain :: IO ()
 simplifyMain = do
-    input <- getLine
-    let (Just originalExpr) = parse input
-    let expr = evalState (simplify originalExpr) Map.empty
-    let newPoly = recAddToPoly expr EmptyPolynomial
-    prettyPrint newPoly
+    countStr <- getLine
+    let count = read countStr :: Int
+    Control.Monad.forM_ [1..count] $ \_-> do
+      input <- System.IO.getLine
+      let (Just originalExpr) = parse input
+      let expr = evalState (simplify originalExpr) Map.empty
+      let newPoly = addToPoly expr EmptyPolynomial
+      print (show originalExpr)
+      print (show expr)
+      print (show newPoly)
+      prettyPrint newPoly
+      printf "\n"
