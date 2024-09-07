@@ -143,25 +143,27 @@ simplifyHelper (Add x (Val 0)) = return x
 simplifyHelper (Add (Val 0) x) = return x
 simplifyHelper (Power v (Val 1)) = return v
 simplifyHelper (Power _ (Val 0)) = return (Val 1)
+simplifyHelper (Div x (Val 1)) = return x
+simplifyHelper (Div (Val x) (Val y)) = return (Val $ x `div` y)
+simplifyHelper (Div (Monomial value var exp) (Val v)) = return (Monomial (value `div` v) var exp)
+simplifyHelper (Add (Val x) (Val y)) = return (Val $ x + y)
+simplifyHelper (Add (Monomial value var exp) (Monomial value1 var1 exp1))   | var == var1 && exp == exp1 = return (Monomial (value + value1) var exp)
 simplifyHelper (Mul (Val 1) x) = return x
 simplifyHelper (Mul x (Val 1)) = return x
-simplifyHelper (Add (Val x) (Val y)) = return (Val $ x + y)
 simplifyHelper (Mul (Val x) (Val y)) = return (Val $ x * y)
-simplifyHelper (Div (Val x) (Val y)) = return (Val $ x `div` y)
-simplifyHelper (Add (Monomial value var exp) (Monomial value1 var1 exp1))   | var == var1 && exp == exp1 = return (Monomial (value + value1) var exp)
-simplifyHelper (Div (Monomial value var exp) (Val v)) = return (Monomial (value `div` v) var exp)
 simplifyHelper (Mul (Monomial value var exp) (Val v)) = return (Monomial (value * v) var exp)
 simplifyHelper (Mul (Val v) (Monomial value var exp)) = return (Monomial (value * v) var exp)
 simplifyHelper (Mul (Monomial value var exp) (Monomial value1 var1 exp1)) | var == var1 = return (Monomial (value*value1) var (exp + exp1))
-simplifyHelper (Div (Add x y) z) = do
+    
+simplifyHelper (Mul (Add x y) z) = do
     x' <- simplify x
     y' <- simplify y
     z' <- simplify z
-    left <- simplify (Div x' z')
-    right <- simplify (Div y' z')
+    left <- simplify (Mul x' z')
+    right <- simplify (Mul y' z')
     return (Add left right)
-    
-simplifyHelper (Mul (Add x y) z) = do
+   
+simplifyHelper (Mul z (Add x y)) = do
     x' <- simplify x
     y' <- simplify y
     z' <- simplify z
@@ -173,17 +175,18 @@ simplifyHelper (Div z (Add x y)) = do
     x' <- simplify x
     y' <- simplify y
     z' <- simplify z
-    left <- simplify (Div x' z')
-    right <- simplify (Div y' z')
+    left <- simplify (Div z' x')
+    right <- simplify (Div z' y')
     return (Add left right)
-    
-simplifyHelper (Mul z (Add x y)) = do
+
+simplifyHelper (Div (Add x y) z) = do
     x' <- simplify x
     y' <- simplify y
     z' <- simplify z
-    left <- simplify (Mul x' z')
-    right <- simplify (Mul y' z')
+    left <- simplify (Div x' z')
+    right <- simplify (Div y' z')
     return (Add left right)
+
 
 simplifyHelper m@(Mul x y) = do
     x' <- simplify x
@@ -266,8 +269,8 @@ simplifyMain = do
       let (Just originalExpr) = parse input
       let expr = evalState (simplify originalExpr) Map.empty
       let newPoly = addToPoly expr EmptyPolynomial
-      print (show originalExpr)
-      print (show expr)
-      print (show newPoly)
+--      print (show originalExpr)
+--      print (show expr)
+--      print (show newPoly)
       prettyPrint newPoly
       printf "\n"
