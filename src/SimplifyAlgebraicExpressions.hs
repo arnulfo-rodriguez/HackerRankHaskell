@@ -1,5 +1,6 @@
 module SimplifyAlgebraicExpressions(simplifyMain) where
 
+
 import Control.Applicative (Alternative(..), liftA2)
 import Data.Char (isDigit, isSpace, isLower)
 import System.IO
@@ -171,13 +172,6 @@ simplifyHelper (Mul z (Add x y)) = do
     right <- simplify (Mul y' z')
     return (Add left right)
 
-simplifyHelper (Div z (Add x y)) = do
-    x' <- simplify x
-    y' <- simplify y
-    z' <- simplify z
-    left <- simplify (Div z' x')
-    right <- simplify (Div z' y')
-    return (Add left right)
 
 simplifyHelper (Div (Add x y) z) = do
     x' <- simplify x
@@ -274,3 +268,4 @@ simplifyMain = do
 --      print (show newPoly)
       prettyPrint newPoly
       printf "\n"
+    
