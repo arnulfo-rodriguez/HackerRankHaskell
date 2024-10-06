@@ -134,6 +134,7 @@ simplifyHelper :: Expr -> State MemoizationMap Expr
 simplifyHelper v@(Val _) = return v
 simplifyHelper (Variable v) = return (Monomial 1 v 1)
 simplifyHelper m@(Monomial _ _ _) = return m
+simplifyHelper (Negation expr) = return (Mul (Val (-1)) expr)
 simplifyHelper (Power (Variable y) (Val v)) = return (Monomial 1 y v)
 simplifyHelper (Sub exp1 exp2) = return (Add exp1 (Mul (Val (-1)) exp2))
 simplifyHelper (Mul (Monomial c y v) (Variable x))   | x == y =  return (Monomial c y (v + 1))
