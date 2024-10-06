@@ -54,7 +54,7 @@ spaces :: Parser String
 spaces = many (satisfy isSpace)
 
 -- Expression parser
-data Expr = Add Expr Expr | Sub Expr Expr | Mul Expr Expr | Div Expr Expr | Power Expr Expr | Val Int | Variable Char | Monomial Int Char Int
+data Expr = Negation Expr | Add Expr Expr | Sub Expr Expr | Mul Expr Expr | Div Expr Expr | Power Expr Expr | Val Int | Variable Char | Monomial Int Char Int
   deriving (Show,Ord,Eq)
 
 data Polynomial = EmptyPolynomial | SingeVariablePolynomial (Map Int Expr)  deriving Show
