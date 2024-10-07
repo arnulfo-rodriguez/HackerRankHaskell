@@ -11,8 +11,16 @@ import Control.Monad.State (State, runState, evalState, modify, get, lift)
 import Control.Monad (when, forM_)
 import Data.List (reverse)
 import Text.Printf (printf)
+
 newtype Parser a = Parser { runParser :: String -> Maybe (a, String) }
 type MemoizationMap = Map Expr Expr
+
+-- Expression parser
+data Expr = Negation Expr | Add Expr Expr | Sub Expr Expr | Mul Expr Expr | Div Expr Expr | Power Expr Expr | Val Int | Variable Char | Monomial Int Char Int
+  deriving (Show,Ord,Eq)
+
+data Polynomial = EmptyPolynomial | SingeVariablePolynomial (Map Int Expr)  deriving Show
+
 
 instance Functor Parser where
   fmap f (Parser p) = Parser $ \input -> do
@@ -52,12 +60,6 @@ symbol = (satisfy isLower)
 
 spaces :: Parser String
 spaces = many (satisfy isSpace)
-
--- Expression parser
-data Expr = Negation Expr | Add Expr Expr | Sub Expr Expr | Mul Expr Expr | Div Expr Expr | Power Expr Expr | Val Int | Variable Char | Monomial Int Char Int
-  deriving (Show,Ord,Eq)
-
-data Polynomial = EmptyPolynomial | SingeVariablePolynomial (Map Int Expr)  deriving Show
 
 integer :: Parser Int
 integer = read <$> some (satisfy isDigit)
