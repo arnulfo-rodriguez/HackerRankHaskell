@@ -1,7 +1,7 @@
 module SimplifyAlgebraicExpressions(simplifyMain) where
 
 
-import Control.Applicative (Alternative(..), liftA2)
+import Control.Applicative (Alternative(..), liftA2,optional)
 import Data.Char (isDigit, isSpace, isLower)
 import System.IO
 import Data.Maybe (fromMaybe)
@@ -12,7 +12,9 @@ import Control.Monad (when, forM_)
 import Data.List (reverse)
 import Text.Printf (printf)
 
-newtype Parser a = Parser { runParser :: String -> Maybe (a, String) }
+data ParserState = ExpectTerm | ExpectExpr deriving (Show)
+data ParserContext = ParserContext { input :: String, state :: ParserState}
+newtype Parser a = Parser { runParser :: ParserContext -> Maybe (a, ParserContext) }
 type MemoizationMap = Map Expr Expr
 
 -- Expression parser
@@ -49,9 +51,18 @@ instance Alternative Parser where
 satisfy :: (Char -> Bool) -> Parser Char
 satisfy predicate = Parser $ \input ->
   case input of
-    (x:xs) | predicate x -> Just (x, xs)
+    (ParserContext (x:xs) state) | predicate x -> Just (x, ParserContext xs state)
     _ -> Nothing
 
+integer :: Parser Int
+integer =  Parser $ \ctx@(ParserContext input state) ->
+            case (state, input) of
+              (ExpectExpr, '-':rest) -> 
+                case runParser (read <$> some (satisfy isDigit)) (ParserContext rest state) of
+                  Just (expr, newCtx) -> Just ( (-expr), newCtx { state = ExpectExpr })
+                  Nothing -> Nothing
+              _ ->  runParser (read <$> some (satisfy isDigit)) ctx
+    
 char :: Char -> Parser Char
 char c = satisfy (== c)
 
@@ -61,11 +72,8 @@ symbol = (satisfy isLower)
 spaces :: Parser String
 spaces = many (satisfy isSpace)
 
-integer :: Parser Int
-integer = read <$> some (satisfy isDigit)
-
 term :: Parser Expr
-term = value <|> parens expr <|> variable
+term = negation <|> value <|> parens expr <|> variable
 
 value :: Parser Expr
 value = Val <$> integer
@@ -77,22 +85,52 @@ parens :: Parser a -> Parser a
 parens p = char '(' *> spaces *> p <* spaces <* char ')'
 
 expr :: Parser Expr
-expr = add
+expr = withState ExpectExpr add
 
 binaryOperation :: Char -> (Expr -> Expr -> Expr) -> Parser (Expr -> Expr -> Expr)
 binaryOperation character constructor = constructor <$ (spaces *> char character <* spaces)
 
 mul :: Parser Expr
-mul = chainLeftAssociative power ((binaryOperation '*' Mul) <|> (binaryOperation '/' Div)  <|> pure Mul)
+mul = withState ExpectExpr $ chainLeftAssociative power (explicitMul <|> implicitMul)
+  where
+    explicitMul = binaryOperation '*' Mul <|> binaryOperation '/' Div
+    implicitMul = Parser $ \ctx@(ParserContext input state) ->
+      case runParser (pure Mul) ctx of
+        Just (f, newCtx) -> 
+          case input of
+            ('-':_) -> Nothing 
+            _ -> Just (f, newCtx)
+        Nothing -> Nothing
 
 add :: Parser Expr
-add = chainLeftAssociative mul ((binaryOperation '+' Add) <|> (binaryOperation '-' Sub))
+add = chainLeftAssociative mul (addOp <|> subOp)
+  where
+    addOp = binaryOperation '+' Add
+    subOp = Parser $ \ctx@(ParserContext input state) ->
+      case runParser (binaryOperation '-' Sub) ctx of
+        Just (f, newCtx) -> Just (f, newCtx { state = ExpectTerm })
+        Nothing -> Nothing
 
+negation :: Parser Expr
+negation = Parser $ \ctx@(ParserContext input state) ->
+  case (state, input) of
+    (ExpectTerm, '-':rest) -> 
+      case runParser (spaces *> term) (ParserContext rest ExpectTerm) of
+        Just (expr, newCtx) -> Just (Negation expr, newCtx { state = ExpectExpr })
+        Nothing -> Nothing
+    _ -> Nothing
+
+withState :: ParserState -> Parser a -> Parser a
+withState newState (Parser p) = Parser $ \ctx ->
+  case p (ctx { state = newState }) of
+    Just (result, newCtx) -> Just (result, newCtx { state = newState })
+    Nothing -> Nothing
+    
 powerOperation :: Parser (Expr -> Expr -> Expr)
 powerOperation = binaryOperation '^' Power
 
 power :: Parser Expr
-power = chainRightAssociative term powerOperation
+power = withState ExpectExpr $ chainRightAssociative term powerOperation
 
 chainLeftAssociative :: Parser a -> Parser (a -> a -> a) -> Parser a
 chainLeftAssociative p op = p >>= rest
@@ -111,8 +149,8 @@ chainRightAssociative p op = p >>= rest
       return (f x y)) <|> return x
 
 parse :: String -> Maybe Expr
-parse input = case runParser (spaces *> expr <* spaces) input of
-  Just (result, "") -> Just result
+parse input = case runParser (spaces *> expr <* spaces) (ParserContext input ExpectTerm) of
+  Just (result, (ParserContext "" _)) -> Just result
   _ -> Nothing
  
 simplify :: Expr -> State MemoizationMap Expr
@@ -240,6 +278,8 @@ printOperation coeff = do
   putStr " "
 
 prettyPrint :: Polynomial -> IO ()
+prettyPrint (SingeVariablePolynomial (monomials)) 
+ | Map.size monomials == 1 && maybe False (\ (x,(Monomial coeff _ _)) -> x ==0 && coeff == 0) (Map.lookupMin monomials) = do (printf "0")
 prettyPrint (SingeVariablePolynomial (monomials)) = let
   prettyPrintRec [] = do
                         (putStr "")
@@ -266,9 +306,9 @@ simplifyMain = do
       let (Just originalExpr) = parse input
       let expr = evalState (simplify originalExpr) Map.empty
       let newPoly = addToPoly expr EmptyPolynomial
---      print (show originalExpr)
---      print (show expr)
---      print (show newPoly)
+      print (show originalExpr)
+      print (show expr)
+      print (show newPoly)
       prettyPrint newPoly
       printf "\n"
     
