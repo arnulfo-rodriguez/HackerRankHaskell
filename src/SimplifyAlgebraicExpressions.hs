@@ -54,15 +54,6 @@ satisfy predicate = Parser $ \input ->
     (ParserContext (x:xs) state) | predicate x -> Just (x, ParserContext xs state)
     _ -> Nothing
 
-integer :: Parser Int
-integer =  Parser $ \ctx@(ParserContext input state) ->
-            case (state, input) of
-              (ExpectExpr, '-':rest) -> 
-                case runParser (read <$> some (satisfy isDigit)) (ParserContext rest state) of
-                  Just (expr, newCtx) -> Just ( (-expr), newCtx { state = ExpectExpr })
-                  Nothing -> Nothing
-              _ ->  runParser (read <$> some (satisfy isDigit)) ctx
-    
 char :: Char -> Parser Char
 char c = satisfy (== c)
 
@@ -72,8 +63,11 @@ symbol = (satisfy isLower)
 spaces :: Parser String
 spaces = many (satisfy isSpace)
 
+integer :: Parser Int
+integer = read <$> some (satisfy isDigit)
+
 term :: Parser Expr
-term = negation <|> value <|> parens expr <|> variable
+term = withState ExpectTerm $ (negation <|> value <|> parens expr <|> variable)
 
 value :: Parser Expr
 value = Val <$> integer
@@ -306,9 +300,9 @@ simplifyMain = do
       let (Just originalExpr) = parse input
       let expr = evalState (simplify originalExpr) Map.empty
       let newPoly = addToPoly expr EmptyPolynomial
-      print (show originalExpr)
-      print (show expr)
-      print (show newPoly)
+--      print (show originalExpr)
+--      print (show expr)
+--      print (show newPoly)
       prettyPrint newPoly
       printf "\n"
     
