@@ -3,6 +3,7 @@
 module ValidBST(isValidBSTMain) where
 
  import Control.Monad.State
+ import Control.Monad
  import Data.Maybe as Maybe
  import System.IO
  import Data.List
@@ -70,7 +71,7 @@ module ValidBST(isValidBSTMain) where
  isValidBSTMain = do
    firstLineStr <- System.IO.getLine
    let totalScenarios = read firstLineStr :: Int
-   forM_ [1..totalScenarios] $ \_-> do
+   Control.Monad.forM_ [1..totalScenarios] $ \_-> do
      _ <- System.IO.getLine
      chars <- System.IO.getLine
      let arrayToEvaluate = readIntegers chars
