@@ -58,7 +58,7 @@ char :: Char -> Parser Char
 char c = satisfy (== c)
 
 symbol :: Parser Char
-symbol = (satisfy isLower)
+symbol = satisfy isLower
 
 spaces :: Parser String
 spaces = many (satisfy isSpace)
@@ -67,7 +67,7 @@ integer :: Parser Int
 integer = read <$> some (satisfy isDigit)
 
 term :: Parser Expr
-term = withState ExpectTerm $ (negation <|> value <|> parens expr <|> variable)
+term = withState ExpectTerm (negation <|> value <|> parens expr <|> variable)
 
 value :: Parser Expr
 value = Val <$> integer
@@ -90,9 +90,9 @@ mul = withState ExpectExpr $ chainLeftAssociative power (explicitMul <|> implici
     explicitMul = binaryOperation '*' Mul <|> binaryOperation '/' Div
     implicitMul = Parser $ \ctx@(ParserContext input state) ->
       case runParser (pure Mul) ctx of
-        Just (f, newCtx) -> 
+        Just (f, newCtx) ->
           case input of
-            ('-':_) -> Nothing 
+            ('-':_) -> Nothing
             _ -> Just (f, newCtx)
         Nothing -> Nothing
 
@@ -108,7 +108,7 @@ add = chainLeftAssociative mul (addOp <|> subOp)
 negation :: Parser Expr
 negation = Parser $ \ctx@(ParserContext input state) ->
   case (state, input) of
-    (ExpectTerm, '-':rest) -> 
+    (ExpectTerm, '-':rest) ->
       case runParser (spaces *> term) (ParserContext rest ExpectTerm) of
         Just (expr, newCtx) -> Just (Negation expr, newCtx { state = ExpectExpr })
         Nothing -> Nothing
@@ -119,7 +119,7 @@ withState newState (Parser p) = Parser $ \ctx ->
   case p (ctx { state = newState }) of
     Just (result, newCtx) -> Just (result, newCtx { state = newState })
     Nothing -> Nothing
-    
+
 powerOperation :: Parser (Expr -> Expr -> Expr)
 powerOperation = binaryOperation '^' Power
 
@@ -144,9 +144,9 @@ chainRightAssociative p op = p >>= rest
 
 parse :: String -> Maybe Expr
 parse input = case runParser (spaces *> expr <* spaces) (ParserContext input ExpectTerm) of
-  Just (result, (ParserContext "" _)) -> Just result
+  Just (result, ParserContext "" _) -> Just result
   _ -> Nothing
- 
+
 simplify :: Expr -> State MemoizationMap Expr
 simplify expr = do
     memo <- get
@@ -167,7 +167,7 @@ iterateUntilConverge expr = do
 simplifyHelper :: Expr -> State MemoizationMap Expr
 simplifyHelper v@(Val _) = return v
 simplifyHelper (Variable v) = return (Monomial 1 v 1)
-simplifyHelper m@(Monomial _ _ _) = return m
+simplifyHelper m@(Monomial {}) = return m
 simplifyHelper (Negation expr) = return (Mul (Val (-1)) expr)
 simplifyHelper (Power (Variable y) (Val v)) = return (Monomial 1 y v)
 simplifyHelper (Sub exp1 exp2) = return (Add exp1 (Mul (Val (-1)) exp2))
@@ -190,7 +190,7 @@ simplifyHelper (Mul (Val x) (Val y)) = return (Val $ x * y)
 simplifyHelper (Mul (Monomial value var exp) (Val v)) = return (Monomial (value * v) var exp)
 simplifyHelper (Mul (Val v) (Monomial value var exp)) = return (Monomial (value * v) var exp)
 simplifyHelper (Mul (Monomial value var exp) (Monomial value1 var1 exp1)) | var == var1 = return (Monomial (value*value1) var (exp + exp1))
-    
+
 simplifyHelper (Mul (Add x y) z) = do
     x' <- simplify x
     y' <- simplify y
@@ -198,7 +198,7 @@ simplifyHelper (Mul (Add x y) z) = do
     left <- simplify (Mul x' z')
     right <- simplify (Mul y' z')
     return (Add left right)
-   
+
 simplifyHelper (Mul z (Add x y)) = do
     x' <- simplify x
     y' <- simplify y
@@ -232,7 +232,7 @@ simplifyHelper d@(Div x y) = do
 simplifyHelper p@(Power x y) = do
     x' <- simplify x
     y' <- simplify y
-    let result = (Power x' y')
+    let result = Power x' y'
     return result
 
 addToPoly:: Expr -> Polynomial -> Polynomial
@@ -246,15 +246,15 @@ addToPoly (Val coeff) (SingeVariablePolynomial theMap) =
   SingeVariablePolynomial $ case Map.lookup 0 theMap of
                               Nothing -> Map.insert 0 (Monomial coeff 'x' 0) theMap
                               (Just (Monomial origCoeff var _)) -> Map.insert 0 (Monomial (coeff + origCoeff) var 0) theMap
-addToPoly (Add x y) poly = (addToPoly y (addToPoly x poly))
+addToPoly (Add x y) poly = addToPoly y (addToPoly x poly)
 addToPoly x _ = error ("Expression: " ++ show x ++ " didn't match any pattern!")
 
 
 printMono :: (Int -> IO ()) -> Expr -> IO ()
 printMono prefixPrinter (Monomial coeff var degree) = do
-  prefixPrinter(coeff)
+  prefixPrinter coeff
   when (coeff /= 0) $ do
-    if (abs(coeff) /= 1) || ((abs(coeff) == 1) && degree == 0)  then printf "%d" (abs coeff) else pure ()
+    when ((abs coeff /= 1) || ((abs coeff == 1) && degree == 0)) $ printf "%d" (abs coeff)
     when (degree > 0) $ do
       printf "%c" var
       when (degree /= 1) $ printf "^%d" degree
@@ -264,7 +264,7 @@ data First = First | NotFirst deriving (Show, Eq)
 printOperation :: Int -> IO ()
 printOperation coeff = do
   putStr " "
-  if (coeff > 0)
+  if coeff > 0
   then
     putStr "+"
   else
@@ -272,20 +272,20 @@ printOperation coeff = do
   putStr " "
 
 prettyPrint :: Polynomial -> IO ()
-prettyPrint (SingeVariablePolynomial (monomials)) 
- | Map.size monomials == 1 && maybe False (\ (x,(Monomial coeff _ _)) -> x ==0 && coeff == 0) (Map.lookupMin monomials) = do (printf "0")
-prettyPrint (SingeVariablePolynomial (monomials)) = let
-  prettyPrintRec [] = do
-                        (putStr "")
-  prettyPrintRec (f:rest) = do
-    (printMono printOperation f)
-    (prettyPrintRec rest)
-  listExprsByAscendingKey = map snd . reverse . Map.toList
-  (first:sortedMonomials) = listExprsByAscendingKey monomials
-  in
-    do
-      (printMono (\ coeff -> (putStr (if (coeff >= 0) then "" else "-")))  first)
-      (prettyPrintRec sortedMonomials)
+prettyPrint (SingeVariablePolynomial monomials)
+ | Map.size monomials == 1 && maybe False (\ (x,Monomial coeff _ _) -> x ==0 && coeff == 0) (Map.lookupMin monomials) = printf "0"
+prettyPrint (SingeVariablePolynomial monomials) =
+    let
+    prettyPrintRec [] = putStr ""
+    prettyPrintRec (f:rest) = do
+      printMono printOperation f
+      prettyPrintRec rest
+    listExprsByAscendingKey = map snd . reverse . Map.toList
+    (first:sortedMonomials) = listExprsByAscendingKey monomials
+    in
+      do
+        printMono (\ coeff -> putStr (if coeff >= 0 then "" else "-"))  first
+        prettyPrintRec sortedMonomials
 
 
 
@@ -305,4 +305,4 @@ simplifyMain = do
 --      print (show newPoly)
       prettyPrint newPoly
       printf "\n"
-    
+

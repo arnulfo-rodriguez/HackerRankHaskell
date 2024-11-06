@@ -2,7 +2,7 @@
 
 module Main where
 
-import SimplifyAlgebraicExpressions
+import Bomberman
 
 main :: IO()
-main = SimplifyAlgebraicExpressions.simplifyMain
+main = Bomberman.bombermanMain

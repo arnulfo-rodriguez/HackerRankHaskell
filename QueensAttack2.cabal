@@ -49,6 +49,7 @@ library
       Crosswords101
       OrderExercises
       SimplifyAlgebraicExpressions
+      Bomberman
   other-modules:
       Paths_QueensAttack2
   hs-source-dirs:
