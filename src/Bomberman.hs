@@ -1,7 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields, FlexibleInstances, UndecidableInstances #-}
 
 module Bomberman(bombermanMain) where
-
 import Control.Monad
 import Data.Bits
 import Data.List
@@ -15,6 +14,8 @@ import Text.Printf (printf)
 import Data.Array as Array
 import Data.Array (array, assocs, bounds, indices, elems, (!))
 import Data.Foldable
+import Data.Map as Map
+import Control.Monad.State (State, runState, evalState, modify, get, lift)
 
 --
 -- Complete the 'bomberMan' function below.
@@ -24,8 +25,9 @@ import Data.Foldable
 --  1. INTEGER n
 --  2. STRING_ARRAY grid
 --
-data Cell = Planted Int Int Int | EmptyCell Int Int
-data Matrix = Matrix Int Int (Array Int Cell)
+data Cell = Planted Int Int Int | EmptyCell Int Int deriving (Eq,Show,Ord)
+data Matrix = Matrix Int Int (Array Int Cell) deriving (Eq, Show,Ord)
+data MatricesState = MatricesState Int (Map Matrix Matrix) deriving Show
 
 indexToPosition :: Int -> Int -> (Int -> Int -> a) -> a
 indexToPosition columns index  constructor =
@@ -46,7 +48,7 @@ stringMatrixToGrid rows cols matrix =
     theArray = array (0 , rows * cols - 1) [(i, fromString x cols i) | (i,x) <- Data.List.zip [0..] flattenedMatrix]
   in Matrix rows cols theArray
 
-toRows cols rows arr = [[arr ! (row * cols + col) | col <- [0..cols-1]] | row <- [0..rows-1]]
+toRows cols rows arr = [[arr Data.Array.! (row * cols + col) | col <- [0..cols-1]] | row <- [0..rows-1]]
 
 gridToStringMatrix:: Matrix -> [String]
 gridToStringMatrix (Matrix rows cols theData) =  toRows cols rows $ fmap toString theData
@@ -94,13 +96,44 @@ iterateBomber ticks g
   | even ticks = plantGrid g
   | otherwise = explodeGrid g
 
-bomberMan :: Int -> Int -> Int -> [String] -> [String]
+matrixMapToList :: Matrix -> Map Matrix Matrix -> ([Matrix],Int)
+matrixMapToList seed matrices =
+  matrixMapToSequenceRec seed 0 []
+  where
+    matrixMapToSequenceRec current count result
+      | (Data.Foldable.null result || current /= seed) && Map.member current matrices = matrixMapToSequenceRec (matrices Map.! current) (count + 1) (result ++ [current])
+      | otherwise = (result,count)
+
+handleTick :: Matrix -> Int -> State MatricesState Matrix
+handleTick matrix ticks =
+    let
+        tickHandler m = iterateBomber ticks (advanceTime m)
+    in
+        do
+          memo <- get
+          case memo of
+             (MatricesState iterations seq) ->
+                 case Map.lookup matrix seq of
+                 Nothing -> do
+                                let nextMatrix = tickHandler matrix
+                                modify $ \_ -> MatricesState (iterations - 1) (Map.insert matrix nextMatrix seq)
+                                (handleTick nextMatrix (ticks + 1))
+                 Just v -> do
+                                let (stateAsList,len) = matrixMapToList matrix seq
+                                let modularResult = iterations `mod` len
+                                let result = stateAsList Data.List.!! modularResult
+                                return result
+
+
+
+bomberMan :: Int -> Int -> Int -> [String] -> ([String],MatricesState)
 bomberMan n rows cols strGrid =
   let
     grid = stringMatrixToGrid rows cols strGrid
-    lastGrid = Data.Foldable.foldl (\ g ticks -> ((iterateBomber ticks).advanceTime) g) grid [1..n]
+    initialState = MatricesState n Map.empty
+    (lastGrid,s) = runState (handleTick grid 1) initialState
     result = gridToStringMatrix lastGrid
-  in result
+  in (result,s)
 
 lstrip = Data.Text.unpack . Data.Text.stripStart . Data.Text.pack
 rstrip = Data.Text.unpack . Data.Text.stripEnd . Data.Text.pack
@@ -128,9 +161,10 @@ bombermanMain = do
 
     grid <- readMultipleLinesAsStringArray r
 
-    let result = bomberMan n r c grid
+    let (result,(MatricesState _ s)) = bomberMan n r c grid
 
     hPutStrLn fptr $ Data.List.intercalate "\n" result
+    hPrint fptr (show (Map.size s))
 
     hFlush fptr
     hClose fptr
