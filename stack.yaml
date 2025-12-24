@@ -17,8 +17,9 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver:
-  url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/0.yaml
+# Updated to latest Nightly snapshot with GHC 9.12.2 (December 2025)
+# For more stability, you can use: lts-24.25 (GHC 9.10.3)
+resolver: nightly-2025-12-22
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.

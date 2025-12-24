@@ -269,7 +269,7 @@ bombermanMain = do
     let (result,(MatricesState _ s)) = bomberMan n r c grid
 
     hPutStrLn fptr $ Data.List.intercalate "\n" result
-    hPrint fptr (show (Map.size s))
+    hPrint fptr (Prelude.show (Map.size s))
 
     hFlush fptr
     hClose fptr
